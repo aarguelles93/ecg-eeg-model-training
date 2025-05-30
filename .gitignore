@@ -1,0 +1,22 @@
+# Python and cache files
+__pycache__/
+*.pyc
+*.pyo
+
+# Data files (ignore all data CSVs except samples)
+data/*
+!data/*sample.csv
+
+# System files
+.DS_Store
+Thumbs.db
+
+# IDE/Editor settings
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Virtual environments
+venv/
+env/
