@@ -1,3 +1,5 @@
+import numpy as np
+
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import (
     Input, Conv1D, MaxPooling1D, Flatten, Dense,
@@ -5,6 +7,7 @@ from tensorflow.keras.layers import (
     Add, LayerNormalization
 )
 from sklearn.svm import SVC
+from sklearn.utils.class_weight import compute_class_weight
 
 def build_simple_cnn(input_shape, num_classes):
     assert len(input_shape) == 2, f"Expected 2D input (timesteps, 1), got {input_shape}"
@@ -38,8 +41,8 @@ def build_cnn_lstm(input_shape, num_classes):
     ])
     return model
 
-def build_mlp_salvaged(input_shape, num_classes):
-    assert len(input_shape) == 2, f"Expected 2D input (timesteps, 1), got {input_shape}"
+def build_mlp(input_shape, num_classes):
+    assert len(input_shape) == 1, f"Expected 1D flattened input, got {input_shape}"
     
     model = Sequential([
         Input(shape=input_shape),
@@ -90,6 +93,8 @@ def build_tcn(input_shape, num_classes):
     model = Model(inputs, outputs)
     return model
 
-def build_svm_model():
+def build_svm_model(y_train):
     """SVM does not need CNN-like input, it needs flattened feature vectors."""
-    return SVC(kernel='rbf', probability=True)
+    class_weights = compute_class_weight(class_weight='balanced', classes=np.unique(y_train), y=y_train)
+    class_weight_dict = dict(enumerate(class_weights))
+    return SVC(kernel='rbf', probability=True, class_weight=class_weight_dict)

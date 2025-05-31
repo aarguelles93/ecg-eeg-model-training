@@ -101,9 +101,7 @@ def main():
     evaluate_svm(X_test, y_test, os.path.join(model_dir, 'svm_model.joblib'))
     evaluate_keras_model(os.path.join(model_dir, 'simple_cnn_best.keras'), X_test, y_test, "Simple CNN")
     evaluate_keras_model(os.path.join(model_dir, 'cnn_lstm_best.keras'), X_test, y_test, "CNN-LSTM")
-    # evaluate_keras_model(os.path.join(model_dir, 'mlp_best.keras'), X_test, y_test, "MLP")
-    # evaluate_keras_model(os.path.join(model_dir, 'mlp_tweaked_best.keras'), X_test, y_test, "MLP Tweaked")
-    evaluate_keras_model(os.path.join(model_dir, 'mlp_salvaged_best.keras'), X_test, y_test, "MLP")
+    evaluate_keras_model(os.path.join(model_dir, 'mlp_best.keras'), X_test, y_test, "MLP")
     evaluate_keras_model(os.path.join(model_dir, 'tcn_best.keras'), X_test, y_test, "TCN")
 
 if __name__ == '__main__':

@@ -9,8 +9,9 @@ from tensorflow.keras.optimizers import Adam
 from data_loader import prepare_dataset
 from models import (
     build_simple_cnn, build_cnn_lstm, build_svm_model, build_tcn,
-    build_mlp_salvaged
+    build_mlp
 )
+from sklearn.utils.class_weight import compute_class_weight
 from sklearn.metrics import confusion_matrix, classification_report
 
 def print_evaluation(y_true, y_pred, model_name):
@@ -24,7 +25,7 @@ def train_svm(X_train, y_train, X_test, y_test, output_dir):
     X_train_flat = X_train.reshape(X_train.shape[0], -1)
     X_test_flat = X_test.reshape(X_test.shape[0], -1)
 
-    model = build_svm_model()
+    model = build_svm_model(y_train)
     model.fit(X_train_flat, y_train)
 
     y_pred = model.predict(X_test_flat)
@@ -35,7 +36,7 @@ def train_svm(X_train, y_train, X_test, y_test, output_dir):
 
 def train_keras_model(model_builder, X_train, y_train, X_test, y_test, output_dir, name):
     print(f"\n Training {name}...")
-    if name == 'mlp_tweaked':
+    if name == 'mlp':
         X_train = X_train.reshape(X_train.shape[0], -1)
         X_test  = X_test.reshape(X_test.shape[0], -1)
 
@@ -44,14 +45,16 @@ def train_keras_model(model_builder, X_train, y_train, X_test, y_test, output_di
     # y_test_cat = to_categorical(y_test, num_classes)
 
     model = model_builder(input_shape=X_train.shape[1:], num_classes=num_classes)
-    # model.compile(optimizer='adam',
     model.compile(optimizer=Adam(learning_rate=1e-4),
                   loss='categorical_crossentropy',
                   metrics=['accuracy'])
+    
+    # Calculate class weights to handle class imbalance
+    class_weights = compute_class_weight(class_weight='balanced', classes=np.unique(y_train), y=y_train)
+    class_weight_dict = dict(enumerate(class_weights))
 
-    ckpt_path = os.path.join(output_dir, f'{name}_best.keras')
     callbacks = [
-        ModelCheckpoint(ckpt_path, save_best_only=True, monitor='val_accuracy'),
+        ModelCheckpoint(os.path.join(output_dir, f'{name}_best.keras'), save_best_only=True, monitor='val_accuracy'),
         EarlyStopping(monitor='val_accuracy', patience=10, restore_best_weights=True)
     ]
 
@@ -60,6 +63,7 @@ def train_keras_model(model_builder, X_train, y_train, X_test, y_test, output_di
         validation_split=0.1,
         epochs=50,
         batch_size=64,
+        class_weight=class_weight_dict,
         callbacks=callbacks,
         verbose=2
     )
@@ -76,7 +80,7 @@ def main(model_to_train='all'):
     print("Preparing dataset...")
     ecg_csv = os.path.join('data', 'mitbih_train.csv')
     eeg_path = os.path.join('data', 'eeg_train.csv')
-    X_train, X_test, y_train, y_test = prepare_dataset(ecg_csv, eeg_path, channel_idx=0)
+    X_train, X_test, y_train, y_test = prepare_dataset(ecg_csv, eeg_path, channel_idx=0, downsample_ratio=2.0)
 
     print("X_train.shape =", X_train.shape, "y_train.shape =", y_train.shape)
 
@@ -90,7 +94,7 @@ def main(model_to_train='all'):
         'svm': train_svm,
         'simple_cnn': build_simple_cnn,
         'cnn_lstm': build_cnn_lstm,
-        'mlp': build_mlp_salvaged,
+        'mlp': build_mlp,
         'tcn': build_tcn
     }
 

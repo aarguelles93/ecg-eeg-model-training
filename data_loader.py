@@ -7,20 +7,33 @@ from sklearn.model_selection import train_test_split
 # api.dataset_download_files('shayanfazeli/heartbeat', path='data/', unzip=True)
 
 
-def load_ecg_data(filepath):
+def load_ecg_data(filepath, downsample_ratio=2.0):
     # df = pd.read_csv(filepath, header=None)
     df = pd.read_csv(filepath, header=None, delimiter=',')
     X = df.iloc[:, :-1].values    # all but last column
     y = df.iloc[:, -1].values    # last column
-    
+
+    # Only retain class 0 (normal) to match EEG vs ECG binary classification
+    ecg_mask = y == 0
+    X = X[ecg_mask]
+    y = y[ecg_mask]
+
+    # Downsample ECG to reduce imbalance (~80k to ~8k)
+    if downsample_ratio is not None:
+        num_eeg = 8064 #####
+        max_ecg = int(num_eeg * downsample_ratio)
+        if X.shape[0] > max_ecg:
+            indices = np.random.choice(X.shape[0], max_ecg, replace=False)
+            X = X[indices]
+            y = y[indices]
+
     return X, y
 
-def simulate_eeg_data(num_samples, signal_length=188):
-    """Simulate random EEG-like signals (placeholder for real EEG)."""
-    eeg_signals = np.random.randn(num_samples, signal_length) * 0.5  # Gaussian noise
-    # labels = np.ones(num_samples) * 1  # Label 1 for EEG
-    labels = np.ones(num_samples, dtype=int)
-    return eeg_signals, labels
+# def simulate_eeg_data(num_samples, signal_length=188):
+#     eeg_signals = np.random.randn(num_samples, signal_length) * 0.5  # Gaussian noise
+#     # labels = np.ones(num_samples) * 1  # Label 1 for EEG
+#     labels = np.ones(num_samples, dtype=int)
+#     return eeg_signals, labels
 
 def load_eeg_data(filepath, channel_idx=0):
     # Now our train/test CSV *does* have a label column at the end
@@ -32,7 +45,7 @@ def load_eeg_data(filepath, channel_idx=0):
     
     df = df.apply(pd.to_numeric, errors='coerce')
     df = df.dropna()  # Drop rows with NaN values
-    X = df.iloc[:, channel_idx].values.reshape(-1, 1)
+    X = np.array(df.iloc[:, channel_idx]).reshape(-1, 1)
 
     X = np.hstack([X] * 187)  # Repeat the channel data to match ECG length
 
@@ -46,9 +59,9 @@ def normalize(X):
     X_max = X.max(axis=0)
     return (X - X_min) / (X_max - X_min)
 
-def prepare_dataset(ecg_path, eeg_path, channel_idx=0):
+def prepare_dataset(ecg_path, eeg_path, channel_idx=0, downsample_ratio=2.0):
     print("Loading ECG data...")
-    X_ecg, y_ecg = load_ecg_data(ecg_path)  
+    X_ecg, y_ecg = load_ecg_data(ecg_path, downsample_ratio=downsample_ratio)
 
     print("Loading EEG data...")
     X_eeg, y_eeg = load_eeg_data(eeg_path, channel_idx=channel_idx)
@@ -60,7 +73,7 @@ def prepare_dataset(ecg_path, eeg_path, channel_idx=0):
     y_eeg[:] = 1  # EEG label
 
     X = np.vstack((X_ecg, X_eeg))
-    y = np.concatenate((y_ecg, y_eeg))
+    y = np.concatenate((np.asarray(y_ecg), np.asarray(y_eeg)))
 
     print("Shuffling data...")
     idx = np.random.permutation(len(X))
@@ -70,33 +83,9 @@ def prepare_dataset(ecg_path, eeg_path, channel_idx=0):
     X = normalize(X)
     X = X[..., np.newaxis]  # Add channel dimension
 
-    print("Splitting data...", X.shape, y.shape)
-    return train_test_split(X, y, test_size=0.2, random_state=42)
-
-
-def prepare_dataset_old(ecg_path, eeg_samples=1000):
-    # 1) Load ECG
-    X_ecg, y_ecg = load_ecg_data(ecg_path)
-    n_features = X_ecg.shape[1]   # e.g. 188
-
-    # 2) Simulate EEG with exactly the same length
-    X_eeg, y_eeg = simulate_eeg_data(eeg_samples, signal_length=n_features)
-
-    # 3) Relabel ECG→0, EEG→1
-    y_ecg[:] = 0
-    y_eeg[:] = 1
-
-    # 4) Stack and shuffle
-    X = np.vstack((X_ecg, X_eeg))
-    y = np.concatenate((y_ecg, y_eeg))
+    # Shuffle and split
     idx = np.random.permutation(len(X))
     X, y = X[idx], y[idx]
 
-    # 5) Normalize
-    X = (X - X.min()) / (X.max() - X.min())
-
-    # 6) Reshape for CNN
-    X = X[..., np.newaxis]
-
-    # 7) Split
-    return train_test_split(X, y, test_size=0.2, random_state=42)
+    print("Splitting data...", X.shape, y.shape)
+    return train_test_split(X, y, test_size=0.2, stratify = y, random_state=42)
