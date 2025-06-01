@@ -5,9 +5,14 @@ from tensorflow.keras.layers import (
     Add, LayerNormalization
 )
 from sklearn.svm import SVC
+from sklearn.utils.class_weight import compute_class_weight
+from tensorflow.keras.layers import GlobalAveragePooling1D
+from tensorflow.keras import Model
+from tensorflow.keras.layers import Input as KInput
 
+# === CNN ===
 def build_simple_cnn(input_shape, num_classes):
-    assert len(input_shape) == 2, f"Expected 2D input (timesteps, 1), got {input_shape}"
+    assert len(input_shape) == 2, f"Expected 2D input (timesteps, channels), got {input_shape}"
 
     model = Sequential([
         Input(shape=input_shape),
@@ -18,12 +23,13 @@ def build_simple_cnn(input_shape, num_classes):
         Flatten(),
         Dense(64, activation='relu'),
         Dropout(0.5),
-        Dense(num_classes, activation='softmax')
+        Dense(1, activation='sigmoid') if num_classes == 2 else Dense(num_classes, activation='softmax')
     ])
     return model
 
+# === CNN + LSTM ===
 def build_cnn_lstm(input_shape, num_classes):
-    assert len(input_shape) == 2, f"Expected 2D input (timesteps, 1), got {input_shape}"
+    assert len(input_shape) == 2, f"Expected 2D input (timesteps, channels), got {input_shape}"
 
     model = Sequential([
         Input(shape=input_shape),
@@ -34,36 +40,34 @@ def build_cnn_lstm(input_shape, num_classes):
         LSTM(64, dropout=0.3, recurrent_dropout=0.3),
         Dense(64, activation='relu'),
         Dropout(0.4),
-        Dense(num_classes, activation='softmax')
+        Dense(1, activation='sigmoid') if num_classes == 2 else Dense(num_classes, activation='softmax')
     ])
     return model
 
-def build_mlp_salvaged(input_shape, num_classes):
-    assert len(input_shape) == 2, f"Expected 2D input (timesteps, 1), got {input_shape}"
-    
+# === MLP ===
+def build_mlp(input_shape, num_classes):
+    assert len(input_shape) == 1, f"Expected 1D flattened input, got {input_shape}"
+
     model = Sequential([
         Input(shape=input_shape),
-        Flatten(),
         Dense(256, activation='relu'),
         BatchNormalization(),
         Dropout(0.5),
         Dense(128, activation='relu'),
         BatchNormalization(),
         Dropout(0.3),
-        Dense(num_classes, activation='softmax')
+        Dense(1, activation='sigmoid') if num_classes == 2 else Dense(num_classes, activation='softmax')
     ])
     return model
 
-# === Temporal Convolutional Network (Basic) ===
+# === TCN Block ===
 def tcn_block(inputs, filters, kernel_size, dilation_rate):
-    x = Conv1D(filters, kernel_size, dilation_rate=dilation_rate,
-               padding='causal')(inputs)
+    x = Conv1D(filters, kernel_size, dilation_rate=dilation_rate, padding='causal')(inputs)
     x = LayerNormalization()(x)
     x = Activation('relu')(x)
     x = Dropout(0.2)(x)
 
-    x = Conv1D(filters, kernel_size, dilation_rate=dilation_rate,
-               padding='causal')(x)
+    x = Conv1D(filters, kernel_size, dilation_rate=dilation_rate, padding='causal')(x)
     x = LayerNormalization()(x)
     x = Dropout(0.2)(x)
 
@@ -73,12 +77,7 @@ def tcn_block(inputs, filters, kernel_size, dilation_rate):
     out = Activation('relu')(out)
     return out
 
-
 def build_tcn(input_shape, num_classes):
-    from tensorflow.keras.layers import GlobalAveragePooling1D
-    from tensorflow.keras import Model
-    from tensorflow.keras.layers import Input as KInput
-
     inputs = KInput(shape=input_shape)
     x = tcn_block(inputs, filters=64, kernel_size=3, dilation_rate=1)
     x = tcn_block(x, filters=64, kernel_size=3, dilation_rate=2)
@@ -86,10 +85,18 @@ def build_tcn(input_shape, num_classes):
     x = GlobalAveragePooling1D()(x)
     x = Dense(64, activation='relu')(x)
     x = Dropout(0.3)(x)
-    outputs = Dense(num_classes, activation='softmax')(x)
+    
+    if num_classes == 2:
+        outputs = Dense(1, activation='sigmoid')(x)
+    else:
+        outputs = Dense(num_classes, activation='softmax')(x)
+
     model = Model(inputs, outputs)
     return model
 
-def build_svm_model():
-    """SVM does not need CNN-like input, it needs flattened feature vectors."""
-    return SVC(kernel='rbf', probability=True)
+
+# === SVM (flattened) ===
+def build_svm_model(y_train):
+    class_weights = compute_class_weight(class_weight='balanced', classes=np.unique(y_train), y=y_train)
+    class_weight_dict = dict(enumerate(class_weights))
+    return SVC(kernel='rbf', probability=True, class_weight=class_weight_dict)

@@ -35,19 +35,28 @@ def train_svm(X_train, y_train, X_test, y_test, output_dir):
 
 def train_keras_model(model_builder, X_train, y_train, X_test, y_test, output_dir, name):
     print(f"\n Training {name}...")
-    if name == 'mlp_tweaked':
+
+    if name == 'mlp':
         X_train = X_train.reshape(X_train.shape[0], -1)
         X_test  = X_test.reshape(X_test.shape[0], -1)
 
     num_classes = len(np.unique(y_train))
-    y_train_cat = to_categorical(y_train, num_classes)
-    # y_test_cat = to_categorical(y_test, num_classes)
+
+    if num_classes == 2:
+        y_train_cat = y_train  # Keep as 0/1
+        loss_fn = 'binary_crossentropy'
+    else:
+        y_train_cat = to_categorical(y_train, num_classes)
+        loss_fn = 'categorical_crossentropy'
 
     model = model_builder(input_shape=X_train.shape[1:], num_classes=num_classes)
     # model.compile(optimizer='adam',
     model.compile(optimizer=Adam(learning_rate=1e-4),
-                  loss='categorical_crossentropy',
+                  loss=loss_fn,
                   metrics=['accuracy'])
+
+    class_weights = compute_class_weight(class_weight='balanced', classes=np.unique(y_train), y=y_train)
+    class_weight_dict = dict(enumerate(class_weights))
 
     ckpt_path = os.path.join(output_dir, f'{name}_best.keras')
     callbacks = [
@@ -65,23 +74,28 @@ def train_keras_model(model_builder, X_train, y_train, X_test, y_test, output_di
     )
 
     # Evaluate
-    y_pred = np.argmax(model.predict(X_test), axis=1)
+    if num_classes == 2:
+        y_probs = model.predict(X_test)
+        y_pred = (y_probs > 0.5).astype(int).flatten()
+    else:
+        y_probs = model.predict(X_test)
+        y_pred = np.argmax(y_probs, axis=1)
+
     print_evaluation(y_test, y_pred, name)
 
     model.save(os.path.join(output_dir, f'{name}_final.keras'))
     print(f"✅ {name} model saved.\n")
 
-
 def main(model_to_train='all'):
     print("Preparing dataset...")
     ecg_csv = os.path.join('data', 'mitbih_train.csv')
     eeg_path = os.path.join('data', 'eeg_train.csv')
-    X_train, X_test, y_train, y_test = prepare_dataset(ecg_csv, eeg_path, channel_idx=0)
+    X_train, X_test, y_train, y_test = prepare_dataset(ecg_csv, eeg_path, downsample_ratio=2.0, eeg_step=2)
 
     print("X_train.shape =", X_train.shape, "y_train.shape =", y_train.shape)
 
     assert X_train.shape[1] == 187, f"Expected 187 timesteps, got {X_train.shape[1]}"
-    assert X_train.shape[2] ==    1, f"Expected 1 channel,    got {X_train.shape[2]}"
+    assert X_train.shape[2] == 32, f"Expected 32 channels, got {X_train.shape[2]}"
 
     output_dir = 'models'
     os.makedirs(output_dir, exist_ok=True)

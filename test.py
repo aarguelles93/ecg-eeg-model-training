@@ -81,11 +81,26 @@ def evaluate_svm(X_test, y_test, model_path):
 def evaluate_keras_model(model_path, X_test, y_test, name):
     print(f"\n🔍 Evaluating {name}...")
     model = load_model(model_path)
-    y_probs = model.predict(X_test)
-    y_pred = np.argmax(y_probs, axis=1)
-    # y_pred = np.argmax(model.predict(X_test), axis=1)
+    output_shape = model.output_shape
+    if name.lower() == "mlp":
+        X_input = X_test.reshape(X_test.shape[0], -1)  # Flatten for MLP
+    else:
+        X_input = X_test
+
+    y_probs = model.predict(X_input)
+
+    # Handle binary vs multi-class prediction
+    if len(output_shape) == 2 and output_shape[1] == 1:
+        y_pred = (y_probs > 0.5).astype(int).flatten()
+    else:
+        y_pred = np.argmax(y_probs, axis=1)
+
     print_evaluation(y_test, y_pred, name)
-    if y_probs.shape[1] == 2:
+
+    # ROC curve only for binary classification
+    if len(output_shape) == 2 and output_shape[1] == 1:
+        plot_roc_curve(y_test, y_probs.flatten(), name)
+    elif len(output_shape) == 2 and output_shape[1] == 2:
         plot_roc_curve(y_test, y_probs[:, 1], name)
 
 def main():
