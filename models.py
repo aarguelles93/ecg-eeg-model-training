@@ -1,3 +1,4 @@
+import numpy as np
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import (
     Input, Conv1D, MaxPooling1D, Flatten, Dense,
@@ -9,6 +10,7 @@ from sklearn.utils.class_weight import compute_class_weight
 from tensorflow.keras.layers import GlobalAveragePooling1D
 from tensorflow.keras import Model
 from tensorflow.keras.layers import Input as KInput
+from tensorflow.keras.layers import Concatenate, GlobalMaxPooling1D
 
 # === CNN ===
 def build_simple_cnn(input_shape, num_classes):
@@ -85,18 +87,42 @@ def build_tcn(input_shape, num_classes):
     x = GlobalAveragePooling1D()(x)
     x = Dense(64, activation='relu')(x)
     x = Dropout(0.3)(x)
-    
-    if num_classes == 2:
-        outputs = Dense(1, activation='sigmoid')(x)
-    else:
-        outputs = Dense(num_classes, activation='softmax')(x)
-
+    outputs = Dense(1, activation='sigmoid')(x) if num_classes == 2 else Dense(num_classes, activation='softmax')(x)
     model = Model(inputs, outputs)
-    return model
 
+    return model
 
 # === SVM (flattened) ===
 def build_svm_model(y_train):
     class_weights = compute_class_weight(class_weight='balanced', classes=np.unique(y_train), y=y_train)
     class_weight_dict = dict(enumerate(class_weights))
     return SVC(kernel='rbf', probability=True, class_weight=class_weight_dict)
+
+def build_dual_branch_cnn(input_shape, num_classes):
+    from tensorflow.keras.layers import Conv1D, Dense, Dropout
+
+    assert len(input_shape) == 2, f"Expected (timesteps, channels), got {input_shape}"
+
+    # Input for both modalities
+    eeg_input = Input(shape=input_shape, name='eeg_input')
+    ecg_input = Input(shape=input_shape, name='ecg_input')
+
+    # EEG branch
+    x1 = Conv1D(32, kernel_size=5, activation='relu')(eeg_input)
+    x1 = BatchNormalization()(x1)
+    x1 = GlobalMaxPooling1D()(x1)
+
+    # ECG branch
+    x2 = Conv1D(32, kernel_size=5, activation='relu')(ecg_input)
+    x2 = BatchNormalization()(x2)
+    x2 = GlobalMaxPooling1D()(x2)
+
+    # Merge branches
+    merged = Concatenate()([x1, x2])
+    merged = Dense(64, activation='relu')(merged)
+    merged = Dropout(0.3)(merged)
+    output = Dense(1, activation='sigmoid')(merged) if num_classes == 2 else Dense(num_classes, activation='softmax')(merged)
+    
+    model = Model(inputs=[eeg_input, ecg_input], outputs=output)
+
+    return model

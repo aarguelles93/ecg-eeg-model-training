@@ -82,6 +82,7 @@ def evaluate_keras_model(model_path, X_test, y_test, name):
     print(f"\n🔍 Evaluating {name}...")
     model = load_model(model_path)
     output_shape = model.output_shape
+
     if name.lower() == "mlp":
         X_input = X_test.reshape(X_test.shape[0], -1)  # Flatten for MLP
     else:
@@ -89,19 +90,15 @@ def evaluate_keras_model(model_path, X_test, y_test, name):
 
     y_probs = model.predict(X_input)
 
-    # Handle binary vs multi-class prediction
-    if len(output_shape) == 2 and output_shape[1] == 1:
+    # Binary or multi-class handling
+    if output_shape[-1] == 1:
         y_pred = (y_probs > 0.5).astype(int).flatten()
+        plot_roc_curve(y_test, y_probs.flatten(), name)
     else:
         y_pred = np.argmax(y_probs, axis=1)
+        plot_roc_curve(y_test, y_probs[:, 1], name)
 
     print_evaluation(y_test, y_pred, name)
-
-    # ROC curve only for binary classification
-    if len(output_shape) == 2 and output_shape[1] == 1:
-        plot_roc_curve(y_test, y_probs.flatten(), name)
-    elif len(output_shape) == 2 and output_shape[1] == 2:
-        plot_roc_curve(y_test, y_probs[:, 1], name)
 
 def main():
     print("📦 Loading test data...")
@@ -112,14 +109,20 @@ def main():
 
     model_dir = 'models'
 
-    # Evaluate all models
-    evaluate_svm(X_test, y_test, os.path.join(model_dir, 'svm_model.joblib'))
-    evaluate_keras_model(os.path.join(model_dir, 'simple_cnn_best.keras'), X_test, y_test, "Simple CNN")
-    evaluate_keras_model(os.path.join(model_dir, 'cnn_lstm_best.keras'), X_test, y_test, "CNN-LSTM")
-    # evaluate_keras_model(os.path.join(model_dir, 'mlp_best.keras'), X_test, y_test, "MLP")
-    # evaluate_keras_model(os.path.join(model_dir, 'mlp_tweaked_best.keras'), X_test, y_test, "MLP Tweaked")
-    evaluate_keras_model(os.path.join(model_dir, 'mlp_salvaged_best.keras'), X_test, y_test, "MLP")
-    evaluate_keras_model(os.path.join(model_dir, 'tcn_best.keras'), X_test, y_test, "TCN")
+    models = {
+        "SVM": os.path.join(model_dir, 'svm_model.joblib'),
+        "Simple CNN": os.path.join(model_dir, 'simple_cnn_best.keras'),
+        "CNN-LSTM": os.path.join(model_dir, 'cnn_lstm_best.keras'),
+        "MLP": os.path.join(model_dir, 'mlp_best.keras'),
+        "TCN": os.path.join(model_dir, 'tcn_best.keras'),
+    }
+
+    for name, path in models.items():
+        if name == "SVM":
+            evaluate_svm(X_test, y_test, path)
+        else:
+            evaluate_keras_model(path, X_test, y_test, name)
+
 
 if __name__ == '__main__':
     main()

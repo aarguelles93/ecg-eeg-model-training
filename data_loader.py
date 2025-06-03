@@ -7,7 +7,7 @@ from sklearn.model_selection import train_test_split
 # api.dataset_download_files('shayanfazeli/heartbeat', path='data/', unzip=True)
 
 
-def load_ecg_data(filepath, downsample_ratio=2.0, num_eeg=None):
+def load_ecg_data(filepath, downsample_ratio=1.0, num_eeg=None):
     # df = pd.read_csv(filepath, header=None)
     df = pd.read_csv(filepath, header=None, delimiter=',')
     print(f"ECG data shape: {df.shape}")
@@ -19,13 +19,11 @@ def load_ecg_data(filepath, downsample_ratio=2.0, num_eeg=None):
     X = X[ecg_mask]
     y = y[ecg_mask]
 
-    # Downsample ECG to reduce imbalance (~80k to ~8k)
     if downsample_ratio is not None and num_eeg is not None:
-        max_ecg = min(int(num_eeg * downsample_ratio), 12000)  # enforce 12k cap
-        if X.shape[0] > max_ecg:
-            indices = np.random.choice(X.shape[0], max_ecg, replace=False)
-            X = X[indices]
-            y = y[indices]
+        max_ecg = min(int(num_eeg * downsample_ratio), len(X))
+        indices = np.random.choice(len(X), max_ecg, replace=False)
+        X = X[indices]
+        y = y[indices]
 
     return X, y
 
@@ -80,7 +78,7 @@ def normalize_per_sample(X):
             X_norm[i] = (sample - min_val) / (max_val - min_val)
     return X_norm
 
-def prepare_dataset(ecg_path, eeg_path, downsample_ratio=2.0, eeg_step=2):
+def prepare_dataset(ecg_path, eeg_path, downsample_ratio=1.0, eeg_step=2):
     print("Loading EEG data...")
     X_eeg, y_eeg = load_eeg_data(eeg_path, step=eeg_step)
     print(f"EEG data loaded: {X_eeg.shape} with labels {np.unique(y_eeg)}")
