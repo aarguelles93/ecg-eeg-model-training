@@ -99,30 +99,34 @@ def build_svm_model(y_train):
     return SVC(kernel='rbf', probability=True, class_weight=class_weight_dict)
 
 def build_dual_branch_cnn(input_shape, num_classes):
-    from tensorflow.keras.layers import Conv1D, Dense, Dropout
+    from tensorflow.keras.layers import Conv1D, Dense, Dropout, BatchNormalization
+    from tensorflow.keras.layers import GlobalMaxPooling1D, GlobalAveragePooling1D
 
     assert len(input_shape) == 2, f"Expected (timesteps, channels), got {input_shape}"
-
-    # Input for both modalities
-    eeg_input = Input(shape=input_shape, name='eeg_input')
-    ecg_input = Input(shape=input_shape, name='ecg_input')
-
-    # EEG branch
-    x1 = Conv1D(32, kernel_size=5, activation='relu')(eeg_input)
-    x1 = BatchNormalization()(x1)
-    x1 = GlobalMaxPooling1D()(x1)
-
-    # ECG branch
-    x2 = Conv1D(32, kernel_size=5, activation='relu')(ecg_input)
-    x2 = BatchNormalization()(x2)
-    x2 = GlobalMaxPooling1D()(x2)
-
-    # Merge branches
-    merged = Concatenate()([x1, x2])
-    merged = Dense(64, activation='relu')(merged)
-    merged = Dropout(0.3)(merged)
-    output = Dense(1, activation='sigmoid')(merged) if num_classes == 2 else Dense(num_classes, activation='softmax')(merged)
     
-    model = Model(inputs=[eeg_input, ecg_input], outputs=output)
-
+    # Single input for both branches
+    signal_input = Input(shape=input_shape, name='signal_input')
+    
+    # Branch 1: Optimized for ECG characteristics (sharp peaks, QRS complexes)
+    ecg_branch = Conv1D(32, kernel_size=3, activation='relu', name='ecg_conv1')(signal_input)
+    ecg_branch = BatchNormalization()(ecg_branch)
+    ecg_branch = Conv1D(64, kernel_size=5, activation='relu', name='ecg_conv2')(ecg_branch)
+    ecg_branch = GlobalMaxPooling1D(name='ecg_pool')(ecg_branch)  # Max pooling for peaks
+    
+    # Branch 2: Optimized for EEG characteristics (oscillations, frequency content)
+    eeg_branch = Conv1D(32, kernel_size=7, activation='relu', name='eeg_conv1')(signal_input)
+    eeg_branch = BatchNormalization()(eeg_branch)
+    eeg_branch = Conv1D(64, kernel_size=11, activation='relu', name='eeg_conv2')(eeg_branch)
+    eeg_branch = GlobalAveragePooling1D(name='eeg_pool')(eeg_branch)  # Avg pooling for oscillations
+    
+    # Combine branches
+    merged = Concatenate(name='merge')([ecg_branch, eeg_branch])
+    merged = Dense(128, activation='relu', name='merged_dense1')(merged)
+    merged = Dropout(0.3)(merged)
+    merged = Dense(64, activation='relu', name='merged_dense2')(merged)
+    merged = Dropout(0.2)(merged)
+    
+    output = Dense(1, activation='sigmoid', name='output')(merged) if num_classes == 2 else Dense(num_classes, activation='softmax', name='output')(merged)
+    
+    model = Model(inputs=signal_input, outputs=output)
     return model

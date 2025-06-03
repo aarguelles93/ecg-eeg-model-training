@@ -2,6 +2,9 @@ import pandas as pd
 import numpy as np
 from sklearn.model_selection import train_test_split
 
+from tensorflow.keras.models import Model
+from tensorflow.keras.layers import Input, Conv1D
+
 # from kaggle.api.kaggle_api_extended import KaggleApi
 # api = KaggleApi(); api.authenticate()
 # api.dataset_download_files('shayanfazeli/heartbeat', path='data/', unzip=True)
@@ -43,8 +46,8 @@ def load_eeg_data(filepath, segment_length=187, step=2):
         raise ValueError(f"Expected 33 columns (32 channels + label), got {df.shape[1]}")
     
     df = df.apply(pd.to_numeric, errors='coerce').dropna()
-    # signal = df.iloc[:, channel_idx].values  # shape: (8064,)
-    signal_matrix = df.iloc[:, :32].values  # shape: (8064, 32)
+    # signal = df.iloc[:, channel_idx].values
+    signal_matrix = df.iloc[:, :32].values
 
     segments = []
     for start in range(0, len(signal_matrix) - segment_length + 1, step):
@@ -78,6 +81,17 @@ def normalize_per_sample(X):
             X_norm[i] = (sample - min_val) / (max_val - min_val)
     return X_norm
 
+def zscore_normalize(X):
+    mean = X.mean(axis=(0, 1), keepdims=True)
+    std = X.std(axis=(0, 1), keepdims=True) + 1e-8
+    return (X - mean) / std
+
+def project_ecg_channels(X_ecg, target_channels=32):
+    input_layer = Input(shape=(X_ecg.shape[1], 1))
+    conv = Conv1D(filters=target_channels, kernel_size=3, padding='same', activation='relu')(input_layer)
+    model = Model(inputs=input_layer, outputs=conv)
+    return model.predict(X_ecg)
+
 def prepare_dataset(ecg_path, eeg_path, downsample_ratio=1.0, eeg_step=2):
     print("Loading EEG data...")
     X_eeg, y_eeg = load_eeg_data(eeg_path, step=eeg_step)
@@ -90,9 +104,10 @@ def prepare_dataset(ecg_path, eeg_path, downsample_ratio=1.0, eeg_step=2):
     if X_ecg.shape[1] != X_eeg.shape[1]:
         raise ValueError(f"Feature mismatch: ECG {X_ecg.shape[1]} vs EEG {X_eeg.shape[1]}")
     
-    X_ecg = np.repeat(X_ecg[:, :, np.newaxis], 32, axis=2)  # shape: (N, 187, 32)
+    X_ecg = X_ecg[:, :, np.newaxis]
+    X_ecg = project_ecg_channels(X_ecg)
 
-    y_ecg = np.zeros(len(X_ecg), dtype=int)  # explicitly recreate labels
+    y_ecg = np.zeros(len(X_ecg), dtype=int)
     y_eeg = np.ones(len(X_eeg), dtype=int)
 
     assert set(y_ecg) == {0}, "ECG labels must be 0"
@@ -108,7 +123,7 @@ def prepare_dataset(ecg_path, eeg_path, downsample_ratio=1.0, eeg_step=2):
     print("Class distribution after shuffle (ECG=0, EEG=1):", np.bincount(y))
 
     print("Normalizing data...")
-    X = normalize_per_sample(X)
+    X = zscore_normalize(X)
 
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, stratify=y, random_state=42)
     print("✅ Label check in train:", np.bincount(y_train))

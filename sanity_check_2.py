@@ -10,6 +10,7 @@ from data_loader import prepare_dataset
 def plot_reliability_diagram(y_true, confidences, model_name='Model', results_dir='results'):
     from sklearn.calibration import calibration_curve
     import matplotlib.pyplot as plt
+
     fraction_of_positives, mean_predicted_value = calibration_curve(
         y_true, confidences, n_bins=10, strategy='uniform'
     )
@@ -36,15 +37,12 @@ def evaluate_keras_model(model_path, X_test, y_test, model_name, flatten=False):
 
     model = load_model(model_path)
     y_probs = model.predict(X_test)
-    y_pred = (y_probs > 0.5).astype(int).flatten()
 
-    # Ensure probabilities are flat (binary classification case)
     if y_probs.ndim > 1 and y_probs.shape[1] == 1:
         y_probs = y_probs.flatten()
+    y_pred = (y_probs > 0.5).astype(int).flatten()
 
-    # Plot reliability
-    confidences = y_probs
-    plot_reliability_diagram(y_test, confidences, model_name=model_name)
+    plot_reliability_diagram(y_test, y_probs, model_name=model_name)
 
     print(f"✅ Accuracy: {accuracy_score(y_test, y_pred):.4f}")
     print("🧾 Classification Report:")
@@ -65,34 +63,23 @@ def evaluate_svm(model_path, X_test, y_test):
     print(confusion_matrix(y_test, y_pred))
 
 def evaluate_dual_branch(model_path, X_test, y_test):
-    print("\n🔍 Evaluating Dual Branch CNN...")
-
-    eeg_test = X_test[y_test == 1]
-    ecg_test = X_test[y_test == 0]
-    min_len = min(len(eeg_test), len(ecg_test))
-
-    eeg_test = eeg_test[:min_len]
-    ecg_test = ecg_test[:min_len]
-
-    y_test_bal = np.concatenate([np.zeros(min_len), np.ones(min_len)])
-    input_data = {
-        'eeg_input': np.concatenate([eeg_test, np.zeros_like(ecg_test)]),
-        'ecg_input': np.concatenate([np.zeros_like(eeg_test), ecg_test])
-    }
-
+    print("\n🔍 Evaluating Dual-Branch CNN (shared input)...")
     model = load_model(model_path)
-    y_probs = model.predict(input_data)
-    y_pred = (y_probs > 0.5).astype(int).flatten()
+    y_probs = model.predict(X_test)
+    y_probs = y_probs.flatten()
+    y_pred = (y_probs > 0.5).astype(int)
 
-    print(f"✅ Accuracy: {accuracy_score(y_test_bal, y_pred):.4f}")
+    plot_reliability_diagram(y_test, y_probs, model_name='Dual-Branch')
+
+    print(f"✅ Accuracy: {accuracy_score(y_test, y_pred):.4f}")
     print("🧾 Classification Report:")
-    print(classification_report(y_test_bal, y_pred, target_names=["ECG", "EEG"]))
+    print(classification_report(y_test, y_pred, target_names=["ECG", "EEG"]))
     print("📉 Confusion Matrix:")
-    print(confusion_matrix(y_test_bal, y_pred))
+    print(confusion_matrix(y_test, y_pred))
 
 def main():
-    ecg_csv = os.path.join('data', 'mitbih_test.csv')
-    eeg_csv = os.path.join('data', 'eeg_test.csv')
+    ecg_csv = os.path.join('data', 'mitbih_train.csv')
+    eeg_csv = os.path.join('data', 'eeg_train.csv')
     X_train, X_test, y_train, y_test = prepare_dataset(ecg_csv, eeg_csv, downsample_ratio=1.5)
 
     model_dir = 'models'

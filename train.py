@@ -127,55 +127,69 @@ def train_keras_model(model_builder, X_train, y_train, X_test, y_test, output_di
     print(f"✅ {name} model saved.\n")
 
 def train_dual_branch(X_train, y_train, X_test, y_test, output_dir):
-    print("\n Training dual_branch CNN...")
+    print("\n🚀 Training redesigned Dual-Branch CNN (shared input)...")
 
-    eeg_train = X_train[y_train == 1]
-    ecg_train = X_train[y_train == 0]
-    min_len = min(len(eeg_train), len(ecg_train))
+    from sklearn.metrics import classification_report, confusion_matrix
+    import matplotlib.pyplot as plt
+    import seaborn as sns
 
-    eeg_train = eeg_train[:min_len]
-    ecg_train = ecg_train[:min_len]
-    # y_train_bal = np.ones(min_len)
+    def save_training_curves(history, model_name='dual_branch'):
+        plt.figure(figsize=(12, 5))
 
-    y_train_bal = np.concatenate([np.zeros(min_len), np.ones(min_len)])
+        # Accuracy
+        plt.subplot(1, 2, 1)
+        plt.plot(history.history.get('accuracy', []), label='Train Acc')
+        plt.plot(history.history.get('val_accuracy', []), label='Val Acc')
+        plt.title('Accuracy over Epochs')
+        plt.xlabel('Epoch')
+        plt.ylabel('Accuracy')
+        plt.legend()
+        plt.grid(True)
 
-    input_data = {
-        'eeg_input': np.concatenate([eeg_train, np.zeros_like(ecg_train)]),
-        'ecg_input': np.concatenate([np.zeros_like(eeg_train), ecg_train])
-    }
+        # Loss
+        plt.subplot(1, 2, 2)
+        plt.plot(history.history.get('loss', []), label='Train Loss')
+        plt.plot(history.history.get('val_loss', []), label='Val Loss')
+        plt.title('Loss over Epochs')
+        plt.xlabel('Epoch')
+        plt.ylabel('Loss')
+        plt.legend()
+        plt.grid(True)
 
-    # save to csv
-    # Save a sample of the input for inspection
-    import pandas as pd
-    from datetime import datetime
+        plt.tight_layout()
+        filename = os.path.join(output_dir, f'{model_name}_training.png')
+        plt.savefig(filename, bbox_inches='tight')
+        plt.close()
+        print(f"📈 Training curves saved to: {filename}")
 
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    eeg_df = pd.DataFrame(input_data['eeg_input'][:5].reshape(5, -1))  # reshape for flat CSV
-    nonzero_ecg = input_data['ecg_input'][input_data['ecg_input'].sum(axis=(1,2)) > 0]
-    ecg_df = pd.DataFrame(nonzero_ecg[:5].reshape(5, -1))
+    def plot_confusion_matrix(y_true, y_pred, model_name='dual_branch'):
+        cm = confusion_matrix(y_true, y_pred)
+        plt.figure(figsize=(6, 5))
+        sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', xticklabels=['ECG', 'EEG'], yticklabels=['ECG', 'EEG'])
+        plt.xlabel("Predicted")
+        plt.ylabel("True")
+        plt.title(f"Confusion Matrix: {model_name}")
+        filename = os.path.join(output_dir, f'{model_name}_confusion_matrix.png')
+        plt.tight_layout()
+        plt.savefig(filename)
+        plt.close()
+        print(f"📉 Confusion matrix saved to: {filename}")
 
-
-    eeg_csv_path = os.path.join(output_dir, f'debug_eeg_input_{timestamp}.csv')
-    ecg_csv_path = os.path.join(output_dir, f'debug_ecg_input_{timestamp}.csv')
-
-    eeg_df.to_csv(eeg_csv_path, index=False)
-    ecg_df.to_csv(ecg_csv_path, index=False)
-
-    print(f"📁 EEG input sample saved to: {eeg_csv_path}")
-    print(f"📁 ECG input sample saved to: {ecg_csv_path}")
-
-    model = build_dual_branch_cnn(input_shape=eeg_train.shape[1:], num_classes=2)
+    # === Model ===
+    input_shape = X_train.shape[1:]  # (187, 32)
+    model = build_dual_branch_cnn(input_shape=input_shape, num_classes=2)
     model.summary()
     model.compile(optimizer=Adam(learning_rate=1e-4), loss='binary_crossentropy', metrics=['accuracy'])
 
+    # === Callbacks ===
     callbacks = [
         ModelCheckpoint(os.path.join(output_dir, 'dual_branch_best.keras'), save_best_only=True, monitor='val_accuracy'),
         EarlyStopping(monitor='val_accuracy', patience=10, restore_best_weights=True)
     ]
 
+    # === Training ===
     history = model.fit(
-        input_data,
-        y_train_bal,
+        X_train, y_train,
         validation_split=0.1,
         epochs=50,
         batch_size=64,
@@ -183,8 +197,21 @@ def train_dual_branch(X_train, y_train, X_test, y_test, output_dir):
         verbose=2
     )
 
+    save_training_curves(history, model_name='dual_branch')
+
+    # === Evaluation ===
+    print("\n🔍 Evaluating on test set...")
+    y_probs = model.predict(X_test)
+    y_pred = (y_probs > 0.5).astype(int).flatten()
+
+    print("📊 Classification Report:")
+    print(classification_report(y_test, y_pred, target_names=["ECG", "EEG"]))
+    plot_confusion_matrix(y_test, y_pred)
+
+    # === Save Final Model ===
     model.save(os.path.join(output_dir, 'dual_branch_final.keras'))
-    print("✅ dual_branch model saved.\n")
+    print("✅ Dual-branch model training complete.\n")
+
 
 def main(model_to_train='all'):
     print("Preparing dataset...")

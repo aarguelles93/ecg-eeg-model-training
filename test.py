@@ -83,14 +83,10 @@ def evaluate_keras_model(model_path, X_test, y_test, name):
     model = load_model(model_path)
     output_shape = model.output_shape
 
-    if name.lower() == "mlp":
-        X_input = X_test.reshape(X_test.shape[0], -1)  # Flatten for MLP
-    else:
-        X_input = X_test
-
+    # Reshape if required (e.g., for MLP)
+    X_input = X_test.reshape(X_test.shape[0], -1) if name.lower() == "mlp" else X_test
     y_probs = model.predict(X_input)
 
-    # Binary or multi-class handling
     if output_shape[-1] == 1:
         y_pred = (y_probs > 0.5).astype(int).flatten()
         plot_roc_curve(y_test, y_probs.flatten(), name)
@@ -100,26 +96,36 @@ def evaluate_keras_model(model_path, X_test, y_test, name):
 
     print_evaluation(y_test, y_pred, name)
 
+def evaluate_dual_branch(model_path, X_test, y_test):
+    print("\n🔍 Evaluating Dual-Branch CNN (shared input)...")
+    model = load_model(model_path)
+    y_probs = model.predict(X_test)
+    y_pred = (y_probs > 0.5).astype(int).flatten()
+    plot_roc_curve(y_test, y_probs.flatten(), "Dual-Branch")
+    print_evaluation(y_test, y_pred, "Dual-Branch")
+
 def main():
-    print("📦 Loading test data...")
+    print("📦 Loading test data with updated preprocessing...")
     ecg_path = os.path.join('data', 'mitbih_train.csv')
     eeg_path = os.path.join('data', 'eeg_train.csv')
 
     _, X_test, _, y_test = prepare_dataset(ecg_path, eeg_path)
 
     model_dir = 'models'
-
     models = {
         "SVM": os.path.join(model_dir, 'svm_model.joblib'),
         "Simple CNN": os.path.join(model_dir, 'simple_cnn_best.keras'),
         "CNN-LSTM": os.path.join(model_dir, 'cnn_lstm_best.keras'),
         "MLP": os.path.join(model_dir, 'mlp_best.keras'),
         "TCN": os.path.join(model_dir, 'tcn_best.keras'),
+        "Dual-Branch": os.path.join(model_dir, 'dual_branch_best.keras'),
     }
 
     for name, path in models.items():
         if name == "SVM":
             evaluate_svm(X_test, y_test, path)
+        elif name == "Dual-Branch":
+            evaluate_dual_branch(path, X_test, y_test)
         else:
             evaluate_keras_model(path, X_test, y_test, name)
 
