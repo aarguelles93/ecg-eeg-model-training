@@ -1,0 +1,11 @@
+{
+  "cnn_lstm": {
+    "optimal_samples": 7741,
+    "optimal_fraction": 0.3,
+    "best_val_accuracy": 0.9998837312062582,
+    "efficient_samples": 2580,
+    "efficient_fraction": 0.1,
+    "overfitting_severity": "Low",
+    "recommended_action": "\ud83d\udc4d GOOD: Use 30.0% of data for optimal results"
+  }
+}
