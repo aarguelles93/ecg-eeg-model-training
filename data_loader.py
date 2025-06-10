@@ -813,6 +813,7 @@ def prepare_dataset(ecg_path, eeg_path, normalization='zscore',
             cached = np.load(cache_path, allow_pickle=True)
             if 'cache_params' in cached:
                 cache_params = cached['cache_params'].item()
+                print(f"   Cache parameters: {cache_params}")
                 current_params = {
                     'normalization': normalization,
                     'normalization_strategy': normalization_strategy,
@@ -850,6 +851,27 @@ def prepare_dataset(ecg_path, eeg_path, normalization='zscore',
     print("\n❤️  Loading ECG data...")
     X_ecg, y_ecg = load_ecg_data(ecg_path, num_eeg=len(X_eeg))
     print(f"ECG samples loaded: {X_ecg.shape[0]}")
+
+    min_samples = min(len(X_ecg), len(X_eeg))
+    print(f"   Target size: {min_samples:,} samples each")
+
+    # Balance ECG if needed
+    if len(X_ecg) > min_samples:
+        print(f"   🔄 Downsampling ECG: {len(X_ecg):,} → {min_samples:,}")
+        np.random.seed(42)
+        indices = np.random.choice(len(X_ecg), min_samples, replace=False)
+        X_ecg = X_ecg[indices]
+        y_ecg = y_ecg[indices]
+
+    # Balance EEG if needed
+    if len(X_eeg) > min_samples:
+        print(f"   🔄 Downsampling EEG: {len(X_eeg):,} → {min_samples:,}")
+        np.random.seed(42)
+        indices = np.random.choice(len(X_eeg), min_samples, replace=False)
+        X_eeg = X_eeg[indices]
+        y_eeg = y_eeg[indices]
+
+    print(f"   ✅ Final balanced sizes: ECG={len(X_ecg):,}, EEG={len(X_eeg):,}")
 
     # Apply dataset fraction early (before compatibility and normalization)
     if dataset_fraction < 1.0:

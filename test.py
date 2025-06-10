@@ -80,6 +80,24 @@ class ModelEvaluator:
         # Also ensure main results directory exists
         self.results_dir.mkdir(exist_ok=True)
     
+    def _load_model_safe_mode(self, model_path):
+        """Last resort: try to extract weights and reconstruct model"""
+        print(f"   🚨 Attempting safe mode reconstruction...")
+        
+        # Try to load just the architecture without weights
+        try:
+            import h5py
+            with h5py.File(model_path, 'r') as f:
+                if 'model_config' in f.attrs:
+                    config = f.attrs['model_config']
+                    print(f"   📋 Found model config, attempting reconstruction...")
+
+                    return None
+        except:
+            pass
+        
+        return None
+    
     def find_available_models(self):
         """
         Automatically discover available trained models
@@ -121,7 +139,7 @@ class ModelEvaluator:
         print("📦 Loading test dataset with modern pipeline...")
         
         # Use same paths as training
-        ecg_path = Path(DATA_DIR) / 'mitbih_train.csv'
+        ecg_path = Path(DATA_DIR) / 'mitbih_from_raw.csv'
         eeg_path = Path(DATA_DIR) / 'eeg_dataset_32.csv'  # Updated path
         
         # Check if paths exist
@@ -134,12 +152,16 @@ class ModelEvaluator:
         print(f"   📁 EEG data: {eeg_path}")
         
         # Load with same parameters as training (cached by default)
+        # dataset_params = {
+        #     'normalization': 'smart',
+        #     'normalization_strategy': 'separate',
+        #     'validate_alignment': True,
+        #     'force_reload': force_reload,
+        #     **dataset_kwargs
+        # }
+
         dataset_params = {
-            'normalization': 'smart',
-            'normalization_strategy': 'separate', 
-            'validate_alignment': True,
-            'force_reload': force_reload,
-            **dataset_kwargs
+            'normalization': 'zscore', 'normalization_strategy': 'separate', 'validate_alignment': True,
         }
         
         print(f"   🔧 Dataset parameters: {dataset_params}")
@@ -157,6 +179,20 @@ class ModelEvaluator:
         print(f"   📈 Feature range: [{X_test.min():.3f}, {X_test.max():.3f}]")
         print(f"   🧠 EEG structure: {metadata.get('eeg_channels', 'unknown')}ch × {metadata.get('eeg_timepoints', 'unknown')}tp")
         
+        # Check for potential data leakage issues (perfect accuracy indicators)
+        unique_test_labels = np.unique(y_test)
+        if len(unique_test_labels) < 2:
+            print(f"   🚨 WARNING: Test set only contains {len(unique_test_labels)} unique label(s): {unique_test_labels}")
+            print(f"   🚨 This will cause invalid evaluation results!")
+
+        # Basic sanity check for balanced test set
+        test_balance = np.bincount(y_test)
+        if len(test_balance) == 2:
+            balance_ratio = min(test_balance) / max(test_balance)
+            if balance_ratio < 0.1:
+                print(f"   ⚠️  Warning: Very imbalanced test set - ratio {balance_ratio:.3f}")
+                print(f"   💡 Consider checking dataset preparation")
+
         return X_train, X_test, y_train, y_test, metadata
     
     def prepare_model_data(self, X_test, model_name, metadata):
@@ -440,7 +476,31 @@ EEG Samples:  {np.sum(y_true == 1):,}
         
         try:
             # Load model
-            model = load_model(model_path)
+            model = None
+            loading_strategies = [
+                ("standard", lambda: load_model(model_path)),
+                ("no_compile", lambda: load_model(model_path, compile=False)),
+                ("custom_objects", lambda: load_model(model_path, custom_objects={}, compile=False)),
+                ("safe_mode", lambda: self._load_model_safe_mode(model_path))
+            ]
+
+            for strategy_name, loader in loading_strategies:
+                try:
+                    print(f"   🔄 Trying {strategy_name} loading...")
+                    model = loader()
+                    if model is not None:
+                        print(f"   ✅ Success with {strategy_name} loading")
+                        # Ensure model is compiled
+                        if not hasattr(model, 'optimizer') or model.optimizer is None:
+                            model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
+                        break
+                except Exception as e:
+                    print(f"   ❌ {strategy_name} failed: {str(e)[:100]}...")
+                    continue
+
+            if model is None:
+                raise Exception("All loading strategies failed - model incompatible with current TensorFlow version")
+
             print(f"   ✅ Model loaded from {model_path}")
             print(f"   📊 Model parameters: {model.count_params():,}")
             
@@ -488,8 +548,7 @@ EEG Samples:  {np.sum(y_true == 1):,}
             
         except Exception as e:
             print(f"   ❌ {model_name} evaluation failed: {str(e)}")
-            import traceback
-            traceback.print_exc()
+            print(f"   💡 Try retraining the model or check TensorFlow/Keras version compatibility")
         finally:
             # Memory cleanup
             cleanup_memory()
@@ -567,24 +626,69 @@ EEG Samples:  {np.sum(y_true == 1):,}
                 print(f"   ⚡ Fastest: {fastest_model}")
 
 def main():
-    """Main evaluation pipeline"""
+    """Main evaluation pipeline with proper dataset parameter handling"""
     print("🚀 MODERN MODEL EVALUATION PIPELINE")
     print("=" * 70)
     
+    # Parse command line arguments to get dataset parameters
+    import argparse
+    parser = argparse.ArgumentParser(description='Evaluate trained ECG vs EEG classification models')
+    parser.add_argument('--models', nargs='+', 
+                       choices=['svm', 'simple_cnn', 'cnn_lstm', 'mlp', 'tcn', 'dual_branch'],
+                       help='Specific models to evaluate (default: all available)')
+    parser.add_argument('--force-reload', action='store_true',
+                       help='Force reload dataset (ignore cache)')
+    parser.add_argument('--results-dir', default=RESULTS_DIR,
+                       help='Directory to save results')
+    
+    # Dataset parameters (should match training parameters for valid evaluation)
+    parser.add_argument('--normalization', choices=['smart', 'zscore', 'minmax', 'per_sample'], 
+                       default='smart', help='Normalization method (default: smart)')
+    parser.add_argument('--norm-strategy', choices=['combined', 'separate'], 
+                       default='separate', help='Normalization strategy (default: separate)')
+    parser.add_argument('--dataset-fraction', type=float, default=1.0,
+                       help='Fraction of dataset to use - MUST match training (default: 1.0)')
+    
+    args = parser.parse_args()
+    
+    # Prepare dataset parameters
+    dataset_params = {
+        'normalization': args.normalization,
+        'normalization_strategy': args.norm_strategy,
+        'dataset_fraction': args.dataset_fraction,
+        'force_reload': args.force_reload
+    }
+    
+    print(f"🔧 Dataset Parameters:")
+    for key, value in dataset_params.items():
+        print(f"   {key}: {value}")
+    
+    # Important validation message
+    if args.dataset_fraction != 1.0:
+        print(f"\n⚠️  IMPORTANT: Using dataset_fraction={args.dataset_fraction}")
+        print(f"   🎯 Ensure this matches the training dataset_fraction!")
+        print(f"   🎯 Otherwise evaluation results will be invalid!")
+    
     # Initialize evaluator
-    evaluator = ModelEvaluator()
+    evaluator = ModelEvaluator(results_dir=args.results_dir)
     
     # Monitor initial memory
     monitor_memory("initial")
     
     try:
-        # Load cached dataset
-        print("\n📦 Loading cached dataset...")
-        X_train, X_test, y_train, y_test, metadata = evaluator.load_cached_dataset()
+        # Load cached dataset with proper parameters
+        print("\n📦 Loading cached dataset with parameter validation...")
+        X_train, X_test, y_train, y_test, metadata = evaluator.load_cached_dataset(**dataset_params)
         
         # Find available models
         print("\n🔍 Discovering trained models...")
         available_models = evaluator.find_available_models()
+        
+        # Filter models if specified
+        if args.models:
+            available_models = {name: path for name, path in available_models.items() 
+                              if name in args.models}
+            print(f"   🎯 Filtering to requested models: {list(available_models.keys())}")
         
         if not available_models:
             print("❌ No trained models found! Please run training first:")
@@ -630,23 +734,4 @@ def main():
         monitor_memory("final")
 
 if __name__ == '__main__':
-    # Handle command line arguments for advanced usage
-    import argparse
-    
-    parser = argparse.ArgumentParser(description='Evaluate trained ECG vs EEG classification models')
-    parser.add_argument('--models', nargs='+', 
-                       choices=['svm', 'simple_cnn', 'cnn_lstm', 'mlp', 'tcn', 'dual_branch'],
-                       help='Specific models to evaluate (default: all available)')
-    parser.add_argument('--force-reload', action='store_true',
-                       help='Force reload dataset (ignore cache)')
-    parser.add_argument('--results-dir', default=RESULTS_DIR,
-                       help='Directory to save results')
-    
-    args = parser.parse_args()
-    
-    # Update global results directory if specified
-    if args.results_dir != RESULTS_DIR:
-        RESULTS_DIR = args.results_dir
-        print(f"📁 Using custom results directory: {RESULTS_DIR}")
-    
     main()

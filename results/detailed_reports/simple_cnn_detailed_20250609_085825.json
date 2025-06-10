@@ -1,0 +1,16 @@
+{
+  "model_name": "simple_cnn",
+  "evaluation_timestamp": "20250609_085825",
+  "test_samples": 5631,
+  "ecg_samples": 2816,
+  "eeg_samples": 2815,
+  "inference_time_ms": 25599.842071533203,
+  "accuracy": 0.9996448232995916,
+  "precision": 0.9992900248491303,
+  "recall": 1.0,
+  "f1_score": 0.9996448863636364,
+  "mcc": 0.9992898987881936,
+  "cohen_kappa": 0.9992896466663916,
+  "roc_auc": 0.9998126665186501,
+  "pr_auc": 0.999733787939324
+}

@@ -1,0 +1,19 @@
+MODEL PERFORMANCE SUMMARY
+Evaluation Date: 20250609_004148
+Total Models Evaluated: 6
+============================================================
+
+      Model  Accuracy  Precision  Recall  F1-Score  ROC AUC  PR AUC    MCC  Inference (ms)
+   cnn_lstm    1.0000     1.0000  1.0000    1.0000   1.0000  1.0000 1.0000       3328.0783
+        mlp    1.0000     1.0000  1.0000    1.0000   1.0000  1.0000 1.0000       1093.0448
+ simple_cnn    0.9998     0.9998  1.0000    0.9999   1.0000  1.0000 0.9993      16840.2574
+        tcn    0.9998     0.9998  1.0000    0.9999   1.0000  1.0000 0.9993       3708.1668
+        SVM    0.9998     1.0000  0.9998    0.9999   1.0000  1.0000 0.9993      19364.5797
+dual_branch    0.9997     0.9996  1.0000    0.9998   1.0000  1.0000 0.9987       2082.7563
+
+============================================================
+PERFORMANCE RANKINGS:
+🥇 Best Overall (F1): cnn_lstm
+🎯 Best Accuracy: cnn_lstm
+📈 Best ROC AUC: cnn_lstm
+⚡ Fastest: mlp

@@ -1,0 +1,16 @@
+{
+  "model_name": "mlp",
+  "evaluation_timestamp": "20250609_085825",
+  "test_samples": 5631,
+  "ecg_samples": 2816,
+  "eeg_samples": 2815,
+  "inference_time_ms": 1239.9539947509766,
+  "accuracy": 0.9998224116497958,
+  "precision": 0.9996448863636364,
+  "recall": 1.0,
+  "f1_score": 0.9998224116497958,
+  "mcc": 0.9996448863636364,
+  "cohen_kappa": 0.999644823310793,
+  "roc_auc": 1.0,
+  "pr_auc": 1.0
+}

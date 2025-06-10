@@ -1,0 +1,567 @@
+(venv) root@DESKTOP-08HJS8G:/mnt/d/Documents/Projects/Thesis/src# python train.py all --normalization zscore --dataset-fraction 0.5 --norm-strategy separate
+🔧 Environment variables set for TensorFlow/CUDA compatibility
+✅ Import safety check passed - TensorFlow not yet imported
+2025-06-09 02:18:44.585031: E external/local_xla/xla/stream_executor/cuda/cuda_dnn.cc:9261] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+2025-06-09 02:18:44.585163: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:607] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+2025-06-09 02:18:44.608438: E external/local_xla/xla/stream_executor/cuda/cuda_blas.cc:1515] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+2025-06-09 02:18:44.684545: I tensorflow/core/platform/cpu_feature_guard.cc:182] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2025-06-09 02:18:45.595774: W tensorflow/compiler/tf2tensorrt/utils/py_utils.cc:38] TF-TRT Warning: Could not find TensorRT
+🔧 Setting up GPU configuration...
+🚀 Setting up GPU-friendly configuration for GTX 1050 (2GB VRAM)...
+✅ CUDA libdevice path set to: /usr/lib/cuda
+🔧 Configuring GPU memory settings...
+2025-06-09 02:18:47.750255: I external/local_xla/xla/stream_executor/cuda/cuda_executor.cc:887] could not open file to read NUMA node: /sys/bus/pci/devices/0000:01:00.0/numa_node
+Your kernel may have been built without NUMA support.
+2025-06-09 02:18:47.956914: I external/local_xla/xla/stream_executor/cuda/cuda_executor.cc:887] could not open file to read NUMA node: /sys/bus/pci/devices/0000:01:00.0/numa_node
+Your kernel may have been built without NUMA support.
+2025-06-09 02:18:47.957019: I external/local_xla/xla/stream_executor/cuda/cuda_executor.cc:887] could not open file to read NUMA node: /sys/bus/pci/devices/0000:01:00.0/numa_node
+Your kernel may have been built without NUMA support.
+✅ Found 1 GPU(s): ['/physical_device:GPU:0']
+✅ Memory growth enabled for /physical_device:GPU:0
+🔧 Configuring TensorFlow memory management...
+✅ Memory growth enabled for /physical_device:GPU:0
+✅ Using float32 precision (optimized for GTX 1050/Pascal)
+   This provides better performance than mixed precision on compute capability 6.1
+✅ GPU configuration complete! GTX 1050 optimized with correct CUDA paths.
+✅ GPU configuration successful - using optimized settings
+🚀 ENHANCED TRAINING PIPELINE
+======================================================================
+🔧 Normalization: zscore (strategy: separate)
+📊 Dataset fraction: 50.0%
+💾 Memory limit: 3.5GB
+🎯 Validation strategy: auto
+📊 Memory monitoring: Enabled
+📈 Progress bars: Enabled
+🖥️  GPU optimization: Enabled
+
+📊 Initial system status:
+💾 Initial memory usage: 0.61GB
+
+📦 Preparing dataset with smart normalization...
+🧠 Memory limit applied: 3.5GB
+   📊 Calculated chunk size: 5,000 samples
+   📊 Estimated memory per chunk: 0.11GB
+🔍 Checking cached dataset: data/preprocessed_dataset.npz
+⚠️ Old cache format - regenerating
+📝 Generating fresh dataset with chunk size: 5,000
+🧠 Loading and analyzing EEG data...
+📊 EEG Dataset Analysis:
+   Total samples: 53,760
+   Columns: 6017
+   Estimated memory: 2467.9 MB
+   Feature columns: 6016
+   📡 Parsing structured column names...
+   📡 Detected from names: 32 channels × 188 timepoints
+🔄 Loading EEG data in chunks...
+   Processing EEG chunk 1: samples 0-5,000
+   Processing EEG chunk 2: samples 5,000-10,000
+   Processing EEG chunk 3: samples 10,000-15,000
+   Processing EEG chunk 4: samples 15,000-20,000
+   Processing EEG chunk 5: samples 20,000-25,000
+   Processing EEG chunk 6: samples 25,000-30,000
+   Processing EEG chunk 7: samples 30,000-35,000
+   Processing EEG chunk 8: samples 35,000-40,000
+   Processing EEG chunk 9: samples 40,000-45,000
+   Processing EEG chunk 10: samples 45,000-50,000
+   Processing EEG chunk 11: samples 50,000-53,760
+   🔗 Combining EEG chunks...
+   ✅ EEG data loaded: (53760, 6016)
+   📊 EEG Statistics:
+      Unique labels: [1]
+      Data range: [-0.298828, 0.328115]
+      Mean: -0.003678, Std: 0.013236
+      Memory usage: 2467.5 MB
+
+❤️  Loading ECG data...
+📖 Loading ECG data from: data/mitbih_from_raw.csv
+   📊 Raw ECG data shape: (28155, 188)
+   🏷️ Original ECG label distribution: [28155]
+   ✂️ ECG samples after filtering (normal heartbeats only): 28155
+   📊 ECG feature range: [-3.718426, 3.100260]
+   📊 ECG statistics: mean=-0.272683, std=0.427785
+   ⚠️ ECG has fewer samples (28,155) than EEG (53,760)
+   🎯 Using all available ECG samples
+   ✅ Final ECG dataset: (28155, 187)
+   🏷️ Binary labels: 28155 samples, all labeled as 0 (ECG)
+ECG samples loaded: 28155
+   Target size: 28,155 samples each
+   🔄 Downsampling EEG: 53,760 → 28,155
+   ✅ Final balanced sizes: ECG=28,155, EEG=28,155
+✂️ Applied dataset_fraction before normalization:
+   EEG: 14077 samples | ECG: 14077 samples
+
+🔍 Advanced feature compatibility check:
+   ECG features: 187
+   EEG features: 6016
+   📊 EEG structure: 32 channels × 188 timepoints
+   ⚠️  Feature dimension mismatch!
+   🧠 EEG structure: 32 channels × 188 timepoints
+   🔄 Projecting ECG: 187 → 6016 features
+   📈 Expanding ECG dimensions...
+   🔄 Repeated ECG features 32x + 32 extra
+   ✅ After projection - ECG: 6016, EEG: 6016
+
+🔧 APPLYING NORMALIZATION: zscore (strategy: separate)
+
+🔧 Applying zscore normalization (strategy: separate)
+
+🔍 PRE-NORMALIZATION DEBUG (ECG):
+   Shape: (14077, 6016)
+   Dtype: float64
+   Memory: 0.63GB
+   Sample size for analysis: 1000
+   Overall mean: -0.332668
+   Overall std: 0.418852
+   Overall range: [-3.718426, 3.100260]
+   NaN values: 0
+   Infinite values: 0
+   Zero values: 0 (0.0%)
+   Percentiles:
+       0.1%:    -1.916825
+       1.0%:    -1.169107
+       5.0%:    -0.972650
+      25.0%:    -0.486975
+      50.0%:    -0.353748
+      75.0%:    -0.217157
+      95.0%:     0.422692
+      99.0%:     1.281444
+      99.9%:     1.846579
+   IQR outliers (3×IQR): 3,944,397 (4.66%)
+   Outlier bounds: [-1.296430, 0.592298]
+   Per-feature stats (first 10 features):
+     Feature  0: mean= -0.4030, std=  0.2887, range=[ -3.1750,   2.8900]
+     Feature  1: mean= -0.4034, std=  0.2889, range=[ -3.1734,   2.9103]
+     Feature  2: mean= -0.4032, std=  0.2886, range=[ -3.1705,   2.8984]
+     Feature  3: mean= -0.4039, std=  0.2894, range=[ -3.1995,   2.9073]
+     Feature  4: mean= -0.4032, std=  0.2892, range=[ -3.1853,   2.8828]
+     Feature  5: mean= -0.4037, std=  0.2898, range=[ -3.1951,   2.8878]
+     Feature  6: mean= -0.4027, std=  0.2890, range=[ -3.1609,   2.8677]
+     Feature  7: mean= -0.4027, std=  0.2897, range=[ -3.1644,   2.8589]
+     Feature  8: mean= -0.4013, std=  0.2891, range=[ -3.1700,   2.8093]
+     Feature  9: mean= -0.4010, std=  0.2894, range=[ -3.1702,   2.7478]
+
+🔍 PRE-NORMALIZATION DEBUG (EEG):
+   Shape: (14077, 6016)
+   Dtype: float64
+   Memory: 0.63GB
+   Sample size for analysis: 1000
+   Overall mean: -0.003719
+   Overall std: 0.013286
+   Overall range: [-0.109489, 0.260421]
+   NaN values: 0
+   Infinite values: 0
+   Zero values: 0 (0.0%)
+   Percentiles:
+       0.1%:    -0.039448
+       1.0%:    -0.030656
+       5.0%:    -0.023877
+      25.0%:    -0.009485
+      50.0%:    -0.002925
+      75.0%:     0.002760
+      95.0%:     0.011322
+      99.0%:     0.019521
+      99.9%:     0.031385
+   IQR outliers (3×IQR): 84,432 (0.10%)
+   Outlier bounds: [-0.046220, 0.039495]
+   Per-feature stats (first 10 features):
+     Feature  0: mean= -0.0102, std=  0.0113, range=[ -0.0376,   0.0141]
+     Feature  1: mean= -0.0102, std=  0.0113, range=[ -0.0376,   0.0141]
+     Feature  2: mean= -0.0102, std=  0.0113, range=[ -0.0376,   0.0142]
+     Feature  3: mean= -0.0102, std=  0.0113, range=[ -0.0376,   0.0141]
+     Feature  4: mean= -0.0102, std=  0.0113, range=[ -0.0376,   0.0142]
+     Feature  5: mean= -0.0102, std=  0.0113, range=[ -0.0376,   0.0141]
+     Feature  6: mean= -0.0102, std=  0.0113, range=[ -0.0377,   0.0141]
+     Feature  7: mean= -0.0102, std=  0.0113, range=[ -0.0376,   0.0141]
+     Feature  8: mean= -0.0102, std=  0.0113, range=[ -0.0376,   0.0141]
+     Feature  9: mean= -0.0102, std=  0.0113, range=[ -0.0377,   0.0141]
+
+📊 Final normalization results:
+   ECG: mean=-0.000000, std=1.000000, range=[-14.165, 12.899]
+   EEG: mean=-0.000000, std=1.000000, range=[-9.653, 25.076]
+   ⚠️  Warning: Found extreme values (>6 std)
+      ECG: 109,502, EEG: 754, Total: 110,256 (0.0651%)
+   🚨 HIGH extreme value percentage detected!
+   💡 STRONG recommendation: Use --normalization per_sample
+   💡 Or try: python train.py --normalization per_sample --quick-lc
+
+🔍 POST-NORMALIZATION DEBUG (ECG):
+   Mean: -0.000000
+   Std: 1.000000
+   Range: [-14.164639, 12.898703]
+   ✅ Mean is close to 0
+   ✅ Std is close to 1
+   ❌ Range is TOO WIDE for z-scores
+       Extreme values (|z| > 6): 109,502 (0.129%)
+       Most extreme values: [12.89870329 12.89870329 12.89870329 12.89870329 12.89870329 12.89870329
+ 12.89870329 12.89870329 12.89870329 12.89870329]
+
+🔍 POST-NORMALIZATION DEBUG (EEG):
+   Mean: -0.000000
+   Std: 1.000000
+   Range: [-9.652527, 25.075522]
+   ✅ Mean is close to 0
+   ✅ Std is close to 1
+   ❌ Range is TOO WIDE for z-scores
+       Extreme values (|z| > 6): 754 (0.001%)
+       Most extreme values: [25.03727637 25.04003333 25.04312212 25.04647697 25.0500884  25.05394957
+ 25.05849486 25.06381952 25.06900097 25.0755223 ]
+
+📦 Combining normalized datasets...
+🔍 Signal alignment validation:
+   ECG samples: 14077
+   EEG samples: 14077
+   EEG structure: 32ch × 188tp
+   ✅ Signal alignment check completed
+🔀 Shuffling data...
+Label distribution after shuffle: [14077 14077]
+
+✂️  Splitting into train/test sets...
+✅ Final dataset summary:
+   Train set: (22523, 6016) | Labels: [11261 11262]
+   Test set:  (5631, 6016) | Labels: [2816 2815]
+   Feature range: [-12.536972, 25.075522]
+   Final statistics:
+      Mean: -0.001578
+      Std: 0.999998
+   Memory usage: Train=1.01GB, Test=0.25GB
+
+📎 Caching dataset...
+   🔄 Saving compressed arrays...
+   ✅ Cached to: data/preprocessed_dataset.npz
+✅ Dataset ready!
+   📊 Dataset loaded in 583.2s
+   🚀 Train: (22523, 6016), Test: (5631, 6016)
+   📉 Using 50.0% of full dataset
+   📈 Total features: 6,016
+   🧠 EEG structure: 32 channels × 188 timepoints
+   💾 Memory usage: 2.18GB (Δ+1.57GB)
+   🔢 Data range: [-12.537, 25.076]
+   📊 Data stats: mean=-0.001578, std=0.999998
+   ⚠️  Warning: 87,494 extreme values (>6 std, 0.065%)
+
+🚀 Training 6 models with memory leak prevention...
+======================================================================
+
+==================== SVM (1/6) ====================
+📊 Memory before svm: 2.18GB
+
+🔧 Training SVM...
+📊 Memory before SVM: CPU=2.18GB, GPU=0.09GB
+📊 Building SVM model...
+🚀 Training SVM...
+✅ SVM training completed in 300.8s
+
+Evaluation for SVM
+[[2816    0]
+ [   0 2815]]
+              precision    recall  f1-score   support
+
+         ECG       1.00      1.00      1.00      2816
+         EEG       1.00      1.00      1.00      2815
+
+    accuracy                           1.00      5631
+   macro avg       1.00      1.00      1.00      5631
+weighted avg       1.00      1.00      1.00      5631
+
+💾 SVM model saved
+📊 Memory after SVM: CPU=2.22GB, GPU=0.09GB
+✅ svm completed in 317.0s
+🧹 Cleaning up memory...
+🧹 Cleaning up TensorFlow memory...
+✅ Memory cleanup completed
+📊 Memory after cleanup: 1.94GB (Δ-0.24GB)
+
+==================== SIMPLE_CNN (2/6) ====================
+📊 Memory before simple_cnn: 1.94GB
+📊 Dataset size: 22,523 samples
+🎯 Using validation strategy: split
+⚙️  Configuration for SIMPLE_CNN:
+   📋 learning_rate: 0.0001
+   📋 batch_size: 24
+   📋 dropout: 0.5
+   📋 filters: [16, 32]
+   📋 kernel_sizes: [3, 3]
+
+🚀 Training simple_cnn with simple split validation...
+📊 Memory before simple_cnn: CPU=1.94GB, GPU=0.09GB
+🔧 Preparing data for simple_cnn...
+   Original data shape: (22523, 6016)
+   EEG structure: 32 channels × 188 timepoints = 6016 features
+   Reshaped to EEG structure: (22523, 188, 32)
+   Input shape for model: (188, 32)
+2025-06-09 02:33:52.132197: I external/local_xla/xla/stream_executor/cuda/cuda_executor.cc:887] could not open file to read NUMA node: /sys/bus/pci/devices/0000:01:00.0/numa_node
+Your kernel may have been built without NUMA support.
+2025-06-09 02:33:52.133818: I external/local_xla/xla/stream_executor/cuda/cuda_executor.cc:887] could not open file to read NUMA node: /sys/bus/pci/devices/0000:01:00.0/numa_node
+Your kernel may have been built without NUMA support.
+2025-06-09 02:33:52.133903: I external/local_xla/xla/stream_executor/cuda/cuda_executor.cc:887] could not open file to read NUMA node: /sys/bus/pci/devices/0000:01:00.0/numa_node
+Your kernel may have been built without NUMA support.
+2025-06-09 02:33:54.183243: I external/local_xla/xla/stream_executor/cuda/cuda_executor.cc:887] could not open file to read NUMA node: /sys/bus/pci/devices/0000:01:00.0/numa_node
+Your kernel may have been built without NUMA support.
+2025-06-09 02:33:54.184739: I external/local_xla/xla/stream_executor/cuda/cuda_executor.cc:887] could not open file to read NUMA node: /sys/bus/pci/devices/0000:01:00.0/numa_node
+Your kernel may have been built without NUMA support.
+2025-06-09 02:33:54.184913: I tensorflow/core/common_runtime/gpu/gpu_device.cc:2022] Could not identify NUMA node of platform GPU id 0, defaulting to 0.  Your kernel may not have been built with NUMA support.
+2025-06-09 02:33:54.219235: I tensorflow/core/common_runtime/gpu/gpu_process_state.cc:236] Using CUDA malloc Async allocator for GPU: 0
+2025-06-09 02:33:54.309419: I external/local_xla/xla/stream_executor/cuda/cuda_executor.cc:887] could not open file to read NUMA node: /sys/bus/pci/devices/0000:01:00.0/numa_node
+Your kernel may have been built without NUMA support.
+2025-06-09 02:33:54.318820: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1929] Created device /job:localhost/replica:0/task:0/device:GPU:0 with 1989 MB memory:  -> device: 0, name: NVIDIA GeForce GTX 1050, pci bus id: 0000:01:00.0, compute capability: 6.1
+🔧 Creating adam optimizer with lr=0.0001
+📊 Model summary for simple_cnn:
+   Parameters: 95,409
+   Input shape: (188, 32)
+                                                                                                                 🧠 Small model (95,409 params) - patience reduced to 5                                 | 0/30 [00:00<?, ?epoch/s]
+2025-06-09 02:34:29.973803: I external/local_xla/xla/stream_executor/cuda/cuda_dnn.cc:454] Loaded cuDNN version 8907
+
+Epoch 8: ReduceLROnPlateau reducing learning rate to 4.999999873689376e-05.1.000, Val_Acc=1.000, LR=1.0e-04, GPU=0
+
+Epoch 13: ReduceLROnPlateau reducing learning rate to 2.499999936844688e-05.1.000, Val_Acc=1.000, LR=5.0e-05, GPU=
+
+Epoch 18: ReduceLROnPlateau reducing learning rate to 1.249999968422344e-05.1.000, Val_Acc=1.000, LR=2.5e-05, GPU=
+                                                                                                                 🛑 Early stopping: Plateau detected after 5 epochsepoch] , Loss=0.0000, Acc=1.000, Val_Acc=1.000, LR=1.2e-05, GPU=
+   Best val_accuracy: 1.000000 at epoch 15
+🔄 Restoring best weights
+✅ simple_cnn (271.1s):  70%|▋| 21/30 [04:30<01:56, 12.90s/epoch] , Loss=0.0000, Acc=1.000, Val_Acc=1.000, LR=1.2e
+⏱️  Training completed in 276.0s21/30 [04:30<01:30, 10.06s/epoch] , Loss=0.0000, Acc=1.000, Val_Acc=1.000, LR=1.2e
+📈 Training curves saved to: models/simple_cnn_training_20250609_023835.png
+🔍 Evaluating on test set...
+
+Evaluation for simple_cnn
+[[2816    0]
+ [   0 2815]]
+              precision    recall  f1-score   support
+
+         ECG       1.00      1.00      1.00      2816
+         EEG       1.00      1.00      1.00      2815
+
+    accuracy                           1.00      5631
+   macro avg       1.00      1.00      1.00      5631
+weighted avg       1.00      1.00      1.00      5631
+
+📊 Memory after simple_cnn: CPU=2.94GB, GPU=0.91GB
+✅ simple_cnn model saved
+✅ simple_cnn completed in 288.4s
+🧹 Cleaning up memory...
+🧹 Cleaning up TensorFlow memory...
+✅ Memory cleanup completed
+📊 Memory after cleanup: 2.80GB (Δ+0.86GB)
+
+==================== CNN_LSTM (3/6) ====================
+📊 Memory before cnn_lstm: 2.80GB
+📊 Dataset size: 22,523 samples
+🎯 Using validation strategy: split
+⚙️  Configuration for CNN_LSTM:
+   📋 learning_rate: 0.0002
+   📋 batch_size: 32
+   📋 dropout: 0.5
+   📋 filters: [16, 32]
+   📋 kernel_sizes: [3, 3, 3]
+   📋 lstm_units: 16
+   📋 l2_regularization: 0.0002
+
+🚀 Training cnn_lstm with simple split validation...
+📊 Memory before cnn_lstm: CPU=2.80GB, GPU=0.91GB
+🔧 Preparing data for cnn_lstm...
+   Original data shape: (22523, 6016)
+   EEG structure: 32 channels × 188 timepoints = 6016 features
+   Reshaped to EEG structure: (22523, 188, 32)
+   Input shape for model: (188, 32)
+[DEBUG] CNN-LSTM input_shape received: (188, 32)
+[INFO] Assuming format: (timesteps=188, features=32)
+🔧 Creating adam optimizer with lr=0.0002
+📊 Model summary for cnn_lstm:
+   Parameters: 9,649
+   Input shape: (188, 32)
+                                                                                                                 🧠 Small model (9,649 params) - patience reduced to 5                                  | 0/30 [00:00<?, ?epoch/s]
+                                                                                                                 🛑 Early stopping: Plateau detected after 5 epochsoch] , Loss=0.0107, Acc=0.995, Val_Acc=1.000, LR=2.0e-04, GPU=0.
+   Best val_accuracy: 1.000000 at epoch 15
+🔄 Restoring best weights
+✅ cnn_lstm (344.0s):  70%|▋| 21/30 [05:43<02:27, 16.38s/epoch] , Loss=0.0107, Acc=0.995, Val_Acc=1.000, LR=2.0e-0
+⏱️  Training completed in 347.2s/30 [05:43<02:24, 16.10s/epoch] , Loss=0.0107, Acc=0.995, Val_Acc=1.000, LR=2.0e-0
+📈 Training curves saved to: models/cnn_lstm_training_20250609_024428.png
+🔍 Evaluating on test set...
+
+Evaluation for cnn_lstm
+[[2816    0]
+ [   0 2815]]
+              precision    recall  f1-score   support
+
+         ECG       1.00      1.00      1.00      2816
+         EEG       1.00      1.00      1.00      2815
+
+    accuracy                           1.00      5631
+   macro avg       1.00      1.00      1.00      5631
+weighted avg       1.00      1.00      1.00      5631
+
+📊 Memory after cnn_lstm: CPU=3.56GB, GPU=1.00GB
+✅ cnn_lstm model saved
+✅ cnn_lstm completed in 352.6s
+🧹 Cleaning up memory...
+🧹 Cleaning up TensorFlow memory...
+✅ Memory cleanup completed
+📊 Memory after cleanup: 2.90GB (Δ+0.10GB)
+
+==================== MLP (4/6) ====================
+📊 Memory before mlp: 2.90GB
+📊 Dataset size: 22,523 samples
+🎯 Using validation strategy: split
+⚙️  Configuration for MLP:
+   📋 learning_rate: 0.0001
+   📋 batch_size: 48
+   📋 dropout1: 0.5
+   📋 dropout2: 0.3
+
+🚀 Training mlp with simple split validation...
+📊 Memory before mlp: CPU=2.90GB, GPU=1.00GB
+🔧 Preparing data for mlp...
+   Original data shape: (22523, 6016)
+   MLP flattened shape: (22523, 6016)
+🔧 Creating adam optimizer with lr=0.0001
+📊 Model summary for mlp:
+   Parameters: 387,201
+   Input shape: (6016,)
+
+Epoch 12: ReduceLROnPlateau reducing learning rate to 4.999999873689376e-05., Val_Acc=1.000, LR=1.0e-04, GPU=1.0GB
+
+Epoch 17: ReduceLROnPlateau reducing learning rate to 2.499999936844688e-05., Val_Acc=1.000, LR=5.0e-05, GPU=1.0GB
+
+Epoch 22: ReduceLROnPlateau reducing learning rate to 1.249999968422344e-05., Val_Acc=1.000, LR=2.5e-05, GPU=1.0GB
+                                                                                                                 🛑 Early stopping: Plateau detected after 8 epochs] , Loss=0.0011, Acc=1.000, Val_Acc=1.000, LR=1.2e-05, GPU=1.0GB
+   Best val_accuracy: 1.000000 at epoch 15
+🔄 Restoring best weights
+✅ mlp (110.6s):  80%|▊| 24/30 [01:50<00:27,  4.61s/epoch] , Loss=0.0011, Acc=1.000, Val_Acc=1.000, LR=1.2e-05, GP
+⏱️  Training completed in 113.8s01:50<00:25,  4.24s/epoch] , Loss=0.0011, Acc=1.000, Val_Acc=1.000, LR=1.2e-05, GP
+📈 Training curves saved to: models/mlp_training_20250609_024628.png
+🔍 Evaluating on test set...
+
+Evaluation for mlp
+[[2816    0]
+ [   0 2815]]
+              precision    recall  f1-score   support
+
+         ECG       1.00      1.00      1.00      2816
+         EEG       1.00      1.00      1.00      2815
+
+    accuracy                           1.00      5631
+   macro avg       1.00      1.00      1.00      5631
+weighted avg       1.00      1.00      1.00      5631
+
+📊 Memory after mlp: CPU=3.59GB, GPU=1.00GB
+✅ mlp model saved
+✅ mlp completed in 115.9s
+🧹 Cleaning up memory...
+🧹 Cleaning up TensorFlow memory...
+✅ Memory cleanup completed
+📊 Memory after cleanup: 2.94GB (Δ+0.04GB)
+
+==================== TCN (5/6) ====================
+📊 Memory before tcn: 2.94GB
+📊 Dataset size: 22,523 samples
+🎯 Using validation strategy: split
+⚙️  Configuration for TCN:
+   📋 learning_rate: 0.0002
+   📋 batch_size: 64
+   📋 base_filters: 24
+   📋 dropout_rate: 0.1
+   📋 dense_units: 32
+
+🚀 Training tcn with simple split validation...
+📊 Memory before tcn: CPU=2.94GB, GPU=1.00GB
+🔧 Preparing data for tcn...
+   Original data shape: (22523, 6016)
+   EEG structure: 32 channels × 188 timepoints = 6016 features
+   Reshaped to EEG structure: (22523, 188, 32)
+   Input shape for model: (188, 32)
+🔧 Creating adam optimizer with lr=0.0002
+📊 Model summary for tcn:
+   Parameters: 8,945
+   Input shape: (188, 32)
+                                                                                                                 🧠 Small model (8,945 params) - patience reduced to 5                                  | 0/30 [00:00<?, ?epoch/s]
+                                                                                                                 🛑 Early stopping: Plateau detected after 5 epochs] , Loss=0.0135, Acc=1.000, Val_Acc=1.000, LR=2.0e-04, GPU=2.2GB
+   Best val_accuracy: 1.000000 at epoch 15
+🔄 Restoring best weights
+✅ tcn (242.3s):  70%|▋| 21/30 [04:02<01:43, 11.54s/epoch] , Loss=0.0135, Acc=1.000, Val_Acc=1.000, LR=2.0e-04, GP
+⏱️  Training completed in 244.5s04:02<01:39, 11.02s/epoch] , Loss=0.0135, Acc=1.000, Val_Acc=1.000, LR=2.0e-04, GP
+📈 Training curves saved to: models/tcn_training_20250609_025035.png
+🔍 Evaluating on test set...
+
+Evaluation for tcn
+[[2816    0]
+ [   0 2815]]
+              precision    recall  f1-score   support
+
+         ECG       1.00      1.00      1.00      2816
+         EEG       1.00      1.00      1.00      2815
+
+    accuracy                           1.00      5631
+   macro avg       1.00      1.00      1.00      5631
+weighted avg       1.00      1.00      1.00      5631
+
+📊 Memory after tcn: CPU=3.69GB, GPU=2.19GB
+✅ tcn model saved
+✅ tcn completed in 249.9s
+🧹 Cleaning up memory...
+🧹 Cleaning up TensorFlow memory...
+✅ Memory cleanup completed
+📊 Memory after cleanup: 3.03GB (Δ+0.09GB)
+
+==================== DUAL_BRANCH (6/6) ====================
+📊 Memory before dual_branch: 3.03GB
+
+🚀 Training Dual-Branch CNN...
+📊 Memory before dual_branch: CPU=3.03GB, GPU=2.19GB
+🔧 Preparing data for dual_branch...
+   Original data shape: (22523, 6016)
+   EEG structure: 32 channels × 188 timepoints = 6016 features
+   Reshaped to EEG structure: (22523, 188, 32)
+   Input shape for model: (188, 32)
+📊 Dataset size: 22,523 samples
+🎯 Using validation strategy: split
+⚙️  Configuration for DUAL_BRANCH:
+   📋 learning_rate: 0.0001
+   📋 batch_size: 16
+   📋 dropout1: 0.3
+   📋 dropout2: 0.2
+   📋 kernel_sizes:
+      ecg: [3, 5]
+      eeg: [7, 11]
+   📋 base_filters: 12
+   📋 l2_regularization: 0.0001
+
+🔧 Creating adam optimizer with lr=0.0001
+📊 Model summary for dual_branch:
+   Parameters: 8,953
+   Input shape: (188, 32)
+📈 dual_branch:   0%|                                                                  | 0/30 [00:00<?, ?epoch/s] 🧠 Small model (8,953 params) - patience reduced to 5
+📈 dual_branch:  70%|▋| 21/30 [08:12<03:21, 22.41s/epoch] , Loss=0.0744, Acc=0.974, Val_Acc=1.000, LR=1.0e-04, GPU🛑 Early stopping: Plateau detected after 5 epochs
+   Best val_accuracy: 1.000000 at epoch 15
+🔄 Restoring best weights
+✅ dual_branch (492.5s):  70%|▋| 21/30 [08:12<03:31, 23.45s/epoch] , Loss=0.0744, Acc=0.974, Val_Acc=1.000, LR=1.0
+⏱️  Training completed in 495.4s
+📈 Training curves saved to: models/dual_branch_training_20250609_025859.png
+📊 Classification Report:
+              precision    recall  f1-score   support
+
+         ECG       1.00      1.00      1.00      2816
+         EEG       1.00      1.00      1.00      2815
+
+    accuracy                           1.00      5631
+   macro avg       1.00      1.00      1.00      5631
+weighted avg       1.00      1.00      1.00      5631
+
+📉 Confusion matrix saved to: models/dual_branch_confusion_matrix.png
+📊 Memory after dual_branch: CPU=3.58GB, GPU=2.19GB
+✅ Dual-Branch CNN training complete.
+✅ dual_branch completed in 503.4s
+🧹 Cleaning up memory...
+🧹 Cleaning up TensorFlow memory...
+✅ Memory cleanup completed
+📊 Memory after cleanup: 3.04GB (Δ+0.02GB)
+
+🎉 TRAINING PIPELINE COMPLETE!
+======================================================================
+⏱️  Total time: 30.5 minutes
+📊 Results summary:
+   ✅ Successful: 6/6
+   ❌ Failed: 0/6
+   🚀 Fastest: mlp (115.9s)
+📊 Final memory usage: 3.04GB (total change: +2.43GB)

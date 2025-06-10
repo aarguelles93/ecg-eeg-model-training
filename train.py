@@ -515,20 +515,11 @@ def create_enhanced_callbacks(model_name, output_dir, progress_position=1):
             restore_best_weights=True
         ),
         
-        # # Model checkpointing
-        # ModelCheckpoint(
-        #     os.path.join(output_dir, f'{model_name}_best.keras'), 
-        #     save_best_only=True, 
-        #     monitor='val_accuracy',
-        #     verbose=0,
-        #     save_format='tf'
-        # ),
-        ModelCheckpoint(
-            filepath=os.path.join(output_dir, f"{model_name}_best"),
+       ModelCheckpoint(
+            filepath=os.path.join(output_dir, f"{model_name}_best.keras"),
             save_best_only=True,
             monitor='val_accuracy',
-            verbose=0,
-            save_format='tf'  # Use TensorFlow format for compatibility
+            verbose=0
         ),
         
         # Learning rate reduction
@@ -594,6 +585,9 @@ def train_with_split(model_builder, X_train, y_train, X_test, y_test, output_dir
     # Save training curves and model
     save_training_curves(history, name, output_dir)
     model.save(os.path.join(output_dir, f'{name}_final.keras'))
+    # validate the file exists
+    if not os.path.exists(os.path.join(output_dir, f'{name}_final.keras')):
+        print(f"⚠️  Model file not found: {os.path.join(output_dir, f'{name}_final.keras')}")
 
     # Evaluate on test set
     print("🔍 Evaluating on test set...")
@@ -1096,7 +1090,7 @@ def main(model_to_train='all'):
     print(f"💾 Initial memory usage: {initial_memory:.2f}GB")
     
     print("\n📦 Preparing dataset with smart normalization...")
-    ecg_csv = os.path.join('data', 'mitbih_train.csv')
+    ecg_csv = os.path.join('data', 'mitbih_from_raw.csv')
     eeg_csv = os.path.join('data', 'eeg_dataset_32.csv')
 
     # Load dataset with enhanced monitoring

@@ -1,34 +1,3 @@
-(tf-gpu-env) root@DESKTOP-08HJS8G:/mnt/d/Documents/Projects/Thesis/src# python train.py cnn cnn_lstm mlp tcn dual_branch --dataset-fraction 0.15 --normalization per_sample
-🔧 Environment variables set for TensorFlow/CUDA compatibility
-✅ Import safety check passed - TensorFlow not yet imported
-2025-06-06 01:21:28.928812: I tensorflow/core/platform/cpu_feature_guard.cc:182] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
-To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
-2025-06-06 01:21:37.432010: W tensorflow/compiler/tf2tensorrt/utils/py_utils.cc:38] TF-TRT Warning: Could not find TensorRT
-🔧 Setting up GPU configuration...
-🚀 Setting up GPU-friendly configuration for GTX 1050 (2GB VRAM)...
-✅ CUDA libdevice path set to: /usr/lib/cuda
-🔧 Configuring GPU memory settings...
-2025-06-06 01:21:59.945710: I tensorflow/compiler/xla/stream_executor/cuda/cuda_gpu_executor.cc:981] could not open file to read NUMA node: /sys/bus/pci/devices/0000:01:00.0/numa_node
-Your kernel may have been built without NUMA support.
-2025-06-06 01:22:01.348280: I tensorflow/compiler/xla/stream_executor/cuda/cuda_gpu_executor.cc:981] could not open file to read NUMA node: /sys/bus/pci/devices/0000:01:00.0/numa_node
-Your kernel may have been built without NUMA support.
-2025-06-06 01:22:01.348490: I tensorflow/compiler/xla/stream_executor/cuda/cuda_gpu_executor.cc:981] could not open file to read NUMA node: /sys/bus/pci/devices/0000:01:00.0/numa_node
-Your kernel may have been built without NUMA support.
-✅ Found 1 GPU(s): ['/physical_device:GPU:0']
-✅ Memory growth enabled for /physical_device:GPU:0
-🔧 Configuring TensorFlow memory management...
-✅ Memory growth enabled for /physical_device:GPU:0
-✅ Using float32 precision (optimized for GTX 1050/Pascal)
-   This provides better performance than mixed precision on compute capability 6.1
-✅ GPU configuration complete! GTX 1050 optimized with correct CUDA paths.
-✅ GPU configuration successful - using optimized settings
-usage: train.py [-h] [--normalization {smart,zscore,minmax,per_sample}] [--norm-strategy {combined,separate}]
-                [--memory-limit MEMORY_LIMIT] [--validation-strategy {auto,split,kfold}] [--learning-curve]
-                [--lc-models LC_MODELS [LC_MODELS ...]] [--lc-fractions LC_FRACTIONS [LC_FRACTIONS ...]]
-                [--lc-folds LC_FOLDS] [--quick-lc] [--reload] [--dataset-fraction DATASET_FRACTION]
-                [--memory-monitoring] [--progress-bars]
-                [model]
-train.py: error: unrecognized arguments: cnn_lstm mlp tcn dual_branch
 (tf-gpu-env) root@DESKTOP-08HJS8G:/mnt/d/Documents/Projects/Thesis/src# python train.py all --dataset-fraction 0.15 --normalization per_sample
 🔧 Environment variables set for TensorFlow/CUDA compatibility
 ✅ Import safety check passed - TensorFlow not yet imported

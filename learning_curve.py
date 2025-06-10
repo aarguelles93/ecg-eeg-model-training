@@ -83,12 +83,13 @@ class LearningCurveAnalyzer:
             stratify=y_train,
             random_state=self.random_state
         )
+
+        print(f"   ⚙️  Using config for {model_name}: {CONFIG[model_name]}")
         
         start_time = time.time()
         
         try:
             if model_name == 'svm':
-                # SVM training (no changes needed)
                 X_subset_flat = X_subset.reshape(X_subset.shape[0], -1)
                 X_val_flat = X_val.reshape(X_val.shape[0], -1)
                 
@@ -102,7 +103,7 @@ class LearningCurveAnalyzer:
                 val_acc = accuracy_score(y_val, val_pred)
                 
             else:
-                # Neural network training - FIXED VERSION
+                # Neural network training
                 import tensorflow as tf
                 from tensorflow.keras.callbacks import EarlyStopping
                 
@@ -137,7 +138,7 @@ class LearningCurveAnalyzer:
                 )
                 
                 # Reduce epochs and batch size for learning curve analysis
-                max_epochs = 15  # Reduced from 20
+                max_epochs = 15
                 batch_size = min(32, CONFIG[model_name].get('batch_size', 64))  # Smaller batches
                 
                 history = model.fit(
