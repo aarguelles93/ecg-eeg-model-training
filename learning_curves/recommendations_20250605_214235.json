@@ -1,0 +1,11 @@
+{
+  "dual_branch": {
+    "optimal_samples": 7741,
+    "optimal_fraction": 0.3,
+    "best_val_accuracy": 1.0,
+    "efficient_samples": 1290,
+    "efficient_fraction": 0.05,
+    "overfitting_severity": "Low",
+    "recommended_action": "\ud83d\udc4d GOOD: Use 30.0% of data for optimal results"
+  }
+}

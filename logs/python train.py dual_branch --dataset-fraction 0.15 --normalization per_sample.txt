@@ -1,0 +1,184 @@
+(venv) root@DESKTOP-08HJS8G:/mnt/d/Documents/Projects/Thesis/src# python train.py dual_branch --dataset-fraction 0.15 --normalization per_sample
+🔧 Environment variables set for TensorFlow/CUDA compatibility
+✅ Import safety check passed - TensorFlow not yet imported
+2025-06-06 15:15:37.734223: I tensorflow/core/platform/cpu_feature_guard.cc:182] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2025-06-06 15:15:46.615415: W tensorflow/compiler/tf2tensorrt/utils/py_utils.cc:38] TF-TRT Warning: Could not find TensorRT
+🔧 Setting up GPU configuration...
+🚀 Setting up GPU-friendly configuration for GTX 1050 (2GB VRAM)...
+✅ CUDA libdevice path set to: /usr/lib/cuda
+🔧 Configuring GPU memory settings...
+2025-06-06 15:16:10.390751: I tensorflow/compiler/xla/stream_executor/cuda/cuda_gpu_executor.cc:981] could not open file to read NUMA node: /sys/bus/pci/devices/0000:01:00.0/numa_node
+Your kernel may have been built without NUMA support.
+2025-06-06 15:16:11.499850: I tensorflow/compiler/xla/stream_executor/cuda/cuda_gpu_executor.cc:981] could not open file to read NUMA node: /sys/bus/pci/devices/0000:01:00.0/numa_node
+Your kernel may have been built without NUMA support.
+2025-06-06 15:16:11.499962: I tensorflow/compiler/xla/stream_executor/cuda/cuda_gpu_executor.cc:981] could not open file to read NUMA node: /sys/bus/pci/devices/0000:01:00.0/numa_node
+Your kernel may have been built without NUMA support.
+✅ Found 1 GPU(s): ['/physical_device:GPU:0']
+✅ Memory growth enabled for /physical_device:GPU:0
+🔧 Configuring TensorFlow memory management...
+✅ Memory growth enabled for /physical_device:GPU:0
+✅ Using float32 precision (optimized for GTX 1050/Pascal)
+   This provides better performance than mixed precision on compute capability 6.1
+✅ GPU configuration complete! GTX 1050 optimized with correct CUDA paths.
+✅ GPU configuration successful - using optimized settings
+🚀 ENHANCED TRAINING PIPELINE
+======================================================================
+🔧 Normalization: per_sample (strategy: separate)
+📊 Dataset fraction: 15.0%
+💾 Memory limit: 3.5GB
+🎯 Validation strategy: auto
+📊 Memory monitoring: Enabled
+📈 Progress bars: Enabled
+🖥️  GPU optimization: Enabled
+
+📊 Initial system status:
+💾 Initial memory usage: 0.46GB
+
+📦 Preparing dataset with smart normalization...
+🧠 Memory limit applied: 3.5GB
+   📊 Calculated chunk size: 5,000 samples
+   📊 Estimated memory per chunk: 0.11GB
+🔍 Checking cached dataset: data/preprocessed_dataset.npz
+✅ Cache parameters match - loading cached data
+📊 Cached data loaded:
+   Train: (86016, 6016) | Test: (21504, 6016)
+   Range: [-4.826004, 5.000000]
+✅ Dataset ready!
+   📊 Dataset loaded in 145.4s
+   🚀 Train: (86016, 6016), Test: (21504, 6016)
+   📉 Using 15.0% of full dataset
+   📈 Total features: 6,016
+   🧠 EEG structure: 32 channels × 188 timepoints
+   💾 Memory usage: 5.28GB (Δ+4.82GB)
+   🔢 Data range: [-4.826, 5.000]
+   📊 Data stats: mean=-0.002794, std=0.984329
+   ✅ No extreme outliers detected - normalization looks good!
+
+🚀 Training 1 models with memory leak prevention...
+======================================================================
+
+==================== DUAL_BRANCH (1/1) ====================
+📊 Memory before dual_branch: 5.28GB
+
+🚀 Training Dual-Branch CNN...
+📊 Memory before dual_branch: CPU=5.30GB, GPU=0.09GB
+🔧 Preparing data for dual_branch...
+   Original data shape: (86016, 6016)
+   EEG structure: 32 channels × 188 timepoints = 6016 features
+   Reshaped to EEG structure: (86016, 188, 32)
+   Input shape for model: (188, 32)
+📊 Dataset size: 86,016 samples
+🎯 Using validation strategy: split
+⚙️  Configuration for DUAL_BRANCH:
+   📋 learning_rate: 0.0001
+   📋 batch_size: 16
+   📋 dropout1: 0.3
+   📋 dropout2: 0.2
+   📋 kernel_sizes:
+      ecg: [3, 5]
+      eeg: [7, 11]
+   📋 base_filters: 12
+   📋 l2_regularization: 0.0001
+
+2025-06-06 15:20:00.636904: I tensorflow/compiler/xla/stream_executor/cuda/cuda_gpu_executor.cc:981] could not open file to read NUMA node: /sys/bus/pci/devices/0000:01:00.0/numa_node
+Your kernel may have been built without NUMA support.
+2025-06-06 15:20:00.638196: I tensorflow/compiler/xla/stream_executor/cuda/cuda_gpu_executor.cc:981] could not open file to read NUMA node: /sys/bus/pci/devices/0000:01:00.0/numa_node
+Your kernel may have been built without NUMA support.
+2025-06-06 15:20:00.638362: I tensorflow/compiler/xla/stream_executor/cuda/cuda_gpu_executor.cc:981] could not open file to read NUMA node: /sys/bus/pci/devices/0000:01:00.0/numa_node
+Your kernel may have been built without NUMA support.
+2025-06-06 15:20:08.233665: I tensorflow/compiler/xla/stream_executor/cuda/cuda_gpu_executor.cc:981] could not open file to read NUMA node: /sys/bus/pci/devices/0000:01:00.0/numa_node
+Your kernel may have been built without NUMA support.
+2025-06-06 15:20:08.233960: I tensorflow/compiler/xla/stream_executor/cuda/cuda_gpu_executor.cc:981] could not open file to read NUMA node: /sys/bus/pci/devices/0000:01:00.0/numa_node
+Your kernel may have been built without NUMA support.
+2025-06-06 15:20:08.234194: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1726] Could not identify NUMA node of platform GPU id 0, defaulting to 0.  Your kernel may not have been built with NUMA support.
+2025-06-06 15:20:08.234311: I tensorflow/compiler/xla/stream_executor/cuda/cuda_gpu_executor.cc:981] could not open file to read NUMA node: /sys/bus/pci/devices/0000:01:00.0/numa_node
+Your kernel may have been built without NUMA support.
+2025-06-06 15:20:08.234619: I tensorflow/core/common_runtime/gpu/gpu_process_state.cc:227] Using CUDA malloc Async allocator for GPU: 0
+2025-06-06 15:20:08.313165: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1639] Created device /job:localhost/replica:0/task:0/device:GPU:0 with 1875 MB memory:  -> device: 0, name: NVIDIA GeForce GTX 1050, pci bus id: 0000:01:00.0, compute capability: 6.1
+🔧 Creating adam optimizer with lr=0.0001
+📊 Model summary for dual_branch:
+   Parameters: 8,953
+   Input shape: (188, 32)
+2025-06-06 15:20:25.438777: W tensorflow/tsl/framework/cpu_allocator_impl.cc:83] Allocation of 1862890496 exceeds 10% of free system memory.
+2025-06-06 15:21:13.944780: W tensorflow/tsl/framework/cpu_allocator_impl.cc:83] Allocation of 1862890496 exceeds 10% of free system memory.
+📈 dual_branch:   0%|                                                                                                                                                                                           | 0/30 [00:00<?, ?epoch/s] 🧠 Small model (8,953 params) - patience reduced to 5
+2025-06-06 15:21:58.357881: I tensorflow/compiler/xla/stream_executor/cuda/cuda_dnn.cc:432] Loaded cuDNN version 8907
+📈 dual_branch:  63%|█████████████████████████████████████████████████████████████████████████▍                                          | 19/30 [25:06<14:15, 77.77s/epoch] , Loss=0.0369, Acc=0.977, Val_Acc=1.000, LR=1.0e-04, GPU=2.3GB
+Epoch 19: ReduceLROnPlateau reducing learning rate to 4.999999873689376e-05.
+📈 dual_branch:  70%|█████████████████████████████████████████████████████████████████████████████████▏                                  | 21/30 [27:32<11:19, 75.45s/epoch] , Loss=0.0385, Acc=0.976, Val_Acc=1.000, LR=5.0e-05, GPU=2.3GB🛑 Early stopping: Plateau detected after 5 epochs
+   Best val_accuracy: 1.000000 at epoch 15
+🔄 Restoring best weights
+✅ dual_branch (1653.9s):  70%|██████████████████████████████████████████████████████████████████████████▏                               | 21/30 [27:33<11:48, 78.74s/epoch] , Loss=0.0385, Acc=0.976, Val_Acc=1.000, LR=5.0e-05, GPU=2.3GB
+⏱️  Training completed in 1724.8s
+📈 Training curves saved to: models/dual_branch_training_20250606_154857.png
+2025-06-06 15:49:23.318609: E tensorflow/compiler/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:306] gpu_async_0 cuMemAllocAsync failed to allocate 760752640 bytes: CUDA error: out of memory (CUDA_ERROR_OUT_OF_MEMORY)
+ Reported by CUDA: Free memory/Total memory: 0/3221094400
+2025-06-06 15:49:23.318670: E tensorflow/compiler/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:311] Stats: Limit:                      1966971291
+InUse:                      2606560956
+MaxInUse:                   2625344188
+NumAllocs:                    19274817
+MaxAllocSize:               1862890496
+Reserved:                            0
+PeakReserved:                        0
+LargestFreeBlock:                    0
+
+2025-06-06 15:49:23.318768: E tensorflow/compiler/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:63] Histogram of current allocation: (allocation_size_in_bytes, nb_allocation_of_that_sizes), ...;
+2025-06-06 15:49:23.318799: E tensorflow/compiler/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:66] 4, 46
+2025-06-06 15:49:23.318833: E tensorflow/compiler/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:66] 8, 12
+2025-06-06 15:49:23.318861: E tensorflow/compiler/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:66] 16, 6
+2025-06-06 15:49:23.318871: E tensorflow/compiler/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:66] 32, 3
+2025-06-06 15:49:23.318896: E tensorflow/compiler/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:66] 48, 6
+2025-06-06 15:49:23.318924: E tensorflow/compiler/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:66] 96, 6
+2025-06-06 15:49:23.318951: E tensorflow/compiler/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:66] 128, 3
+2025-06-06 15:49:23.318979: E tensorflow/compiler/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:66] 1028, 1
+2025-06-06 15:49:23.318989: E tensorflow/compiler/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:66] 1536, 3
+2025-06-06 15:49:23.319016: E tensorflow/compiler/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:66] 4608, 3
+2025-06-06 15:49:23.319056: E tensorflow/compiler/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:66] 5760, 3
+2025-06-06 15:49:23.319092: E tensorflow/compiler/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:66] 10752, 4
+2025-06-06 15:49:23.319120: E tensorflow/compiler/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:66] 12672, 3
+2025-06-06 15:49:23.319130: E tensorflow/compiler/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:66] 68816, 1
+2025-06-06 15:49:23.319136: E tensorflow/compiler/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:66] 279552, 1
+2025-06-06 15:49:23.319143: E tensorflow/compiler/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:66] 285696, 1
+2025-06-06 15:49:23.319149: E tensorflow/compiler/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:66] 619312, 1
+2025-06-06 15:49:23.319158: E tensorflow/compiler/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:66] 770048, 1
+2025-06-06 15:49:23.319185: E tensorflow/compiler/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:66] 17056768, 1
+2025-06-06 15:49:23.319220: E tensorflow/compiler/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:66] 206998528, 1
+2025-06-06 15:49:23.319250: E tensorflow/compiler/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:66] 517472256, 1
+2025-06-06 15:49:23.319287: E tensorflow/compiler/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:66] 1862890496, 1
+2025-06-06 15:49:23.319516: E tensorflow/compiler/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:97] CU_MEMPOOL_ATTR_RESERVED_MEM_CURRENT: 2684354560
+2025-06-06 15:49:23.319546: E tensorflow/compiler/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:99] CU_MEMPOOL_ATTR_USED_MEM_CURRENT: 2606560956
+2025-06-06 15:49:23.319574: E tensorflow/compiler/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:100] CU_MEMPOOL_ATTR_RESERVED_MEM_HIGH: 3456106496
+2025-06-06 15:49:23.319601: E tensorflow/compiler/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:101] CU_MEMPOOL_ATTR_USED_MEM_HIGH: 2625344188
+📊 Classification Report:
+              precision    recall  f1-score   support
+
+         ECG       1.00      1.00      1.00     10752
+         EEG       1.00      1.00      1.00     10752
+
+    accuracy                           1.00     21504
+   macro avg       1.00      1.00      1.00     21504
+weighted avg       1.00      1.00      1.00     21504
+
+📉 Confusion matrix saved to: models/dual_branch_confusion_matrix.png
+📊 Memory after dual_branch: CPU=8.99GB, GPU=2.83GB
+✅ Dual-Branch CNN training complete.
+✅ dual_branch completed in 1812.2s
+🧹 Cleaning up memory...
+🧹 Cleaning up TensorFlow memory...
+✅ Memory cleanup completed
+📊 Memory after cleanup: 6.53GB (Δ+1.25GB)
+
+🎉 TRAINING PIPELINE COMPLETE!
+======================================================================
+⏱️  Total time: 30.2 minutes
+📊 Results summary:
+   ✅ Successful: 1/1
+   ❌ Failed: 0/1
+   🚀 Fastest: dual_branch (1812.2s)
+📊 Final memory usage: 6.53GB (total change: +6.07GB)
+
+💡 Next steps:
+   • Check model performance in the models/ directory
+   • Compare training curves to identify best performing models
+   • Use the best performing model for inference

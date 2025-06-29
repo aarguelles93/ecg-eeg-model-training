@@ -1,0 +1,16 @@
+{
+  "model_name": "SVM",
+  "evaluation_timestamp": "20250609_085825",
+  "test_samples": 5631,
+  "ecg_samples": 2816,
+  "eeg_samples": 2815,
+  "inference_time_ms": 33892.95053482056,
+  "accuracy": 1.0,
+  "precision": 1.0,
+  "recall": 1.0,
+  "f1_score": 1.0,
+  "mcc": 1.0,
+  "cohen_kappa": 1.0,
+  "roc_auc": 1.0,
+  "pr_auc": 1.0
+}

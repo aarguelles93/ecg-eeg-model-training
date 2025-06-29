@@ -1,0 +1,240 @@
+(tf-gpu-env) root@DESKTOP-08HJS8G:/mnt/d/Documents/Projects/Thesis/src# python train.py all --learning-curve --lc-models cnn_lstm tcn dual_branch --dataset-fraction 0.3 --normalization per_sample
+🔧 Environment variables set for TensorFlow/CUDA compatibility
+✅ Import safety check passed - TensorFlow not yet imported
+2025-06-05 16:21:38.128584: I tensorflow/core/platform/cpu_feature_guard.cc:182] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2025-06-05 16:21:45.421692: W tensorflow/compiler/tf2tensorrt/utils/py_utils.cc:38] TF-TRT Warning: Could not find TensorRT
+🔧 Setting up GPU configuration...
+🚀 Setting up GPU-friendly configuration for GTX 1050 (2GB VRAM)...
+✅ CUDA libdevice path set to: /usr/lib/cuda
+Traceback (most recent call last):
+  File "/mnt/d/Documents/Projects/Thesis/src/train.py", line 36, in <module>
+    GPU_AVAILABLE = gpu_friendly_config()
+  File "/mnt/d/Documents/Projects/Thesis/src/gpu_config.py", line 382, in gpu_friendly_config
+    gpu_available = configure_gpu_memory(
+TypeError: configure_gpu_memory() got an unexpected keyword argument 'memory_limit_mb'
+(tf-gpu-env) root@DESKTOP-08HJS8G:/mnt/d/Documents/Projects/Thesis/src# python train.py all --learning-curve --lc-models cnn_lstm tcn dual_branch --dataset-fraction 0.3 --normalization per_sample
+🔧 Environment variables set for TensorFlow/CUDA compatibility
+✅ Import safety check passed - TensorFlow not yet imported
+2025-06-05 16:23:54.513741: I tensorflow/core/platform/cpu_feature_guard.cc:182] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2025-06-05 16:24:02.435337: W tensorflow/compiler/tf2tensorrt/utils/py_utils.cc:38] TF-TRT Warning: Could not find TensorRT
+🔧 Setting up GPU configuration...
+🚀 Setting up GPU-friendly configuration for GTX 1050 (2GB VRAM)...
+✅ CUDA libdevice path set to: /usr/lib/cuda
+🔧 Configuring GPU memory settings...
+2025-06-05 16:24:24.852508: I tensorflow/compiler/xla/stream_executor/cuda/cuda_gpu_executor.cc:981] could not open file to read NUMA node: /sys/bus/pci/devices/0000:01:00.0/numa_node
+Your kernel may have been built without NUMA support.
+2025-06-05 16:24:25.788107: I tensorflow/compiler/xla/stream_executor/cuda/cuda_gpu_executor.cc:981] could not open file to read NUMA node: /sys/bus/pci/devices/0000:01:00.0/numa_node
+Your kernel may have been built without NUMA support.
+2025-06-05 16:24:25.788207: I tensorflow/compiler/xla/stream_executor/cuda/cuda_gpu_executor.cc:981] could not open file to read NUMA node: /sys/bus/pci/devices/0000:01:00.0/numa_node
+Your kernel may have been built without NUMA support.
+✅ Found 1 GPU(s): ['/physical_device:GPU:0']
+✅ Memory growth enabled for /physical_device:GPU:0
+🔧 Configuring TensorFlow memory management...
+✅ Memory growth enabled for /physical_device:GPU:0
+✅ Using float32 precision (optimized for GTX 1050/Pascal)
+   This provides better performance than mixed precision on compute capability 6.1
+✅ GPU configuration complete! GTX 1050 optimized with correct CUDA paths.
+✅ GPU configuration successful - using optimized settings
+🚀 ENHANCED TRAINING PIPELINE
+======================================================================
+🔧 Normalization: per_sample (strategy: separate)
+📊 Dataset fraction: 30.0%
+💾 Memory limit: 3.5GB
+🎯 Validation strategy: auto
+📊 Memory monitoring: Enabled
+📈 Progress bars: Enabled
+🖥️  GPU optimization: Enabled
+
+📊 Initial system status:
+💾 Initial memory usage: 0.44GB
+
+📦 Preparing dataset with smart normalization...
+🧠 Memory limit applied: 3.5GB
+   📊 Calculated chunk size: 5,000 samples
+   📊 Estimated memory per chunk: 0.11GB
+🔍 Checking cached dataset: data/preprocessed_dataset.npz
+✅ Cache parameters match - loading cached data
+📊 Cached data loaded:
+   Train: (25804, 6016) | Test: (6452, 6016)
+   Range: [-4.826004, 5.000000]
+✅ Dataset ready!
+   📊 Dataset loaded in 12.0s
+   🚀 Train: (25804, 6016), Test: (6452, 6016)
+   📉 Using 30.0% of full dataset
+   📈 Total features: 6,016
+   🧠 EEG structure: 32 channels × 188 timepoints
+   💾 Memory usage: 1.89GB (Δ+1.45GB)
+   🔢 Data range: [-4.826, 5.000]
+   📊 Data stats: mean=-0.002264, std=0.987077
+   ✅ No extreme outliers detected - normalization looks good!
+
+🎯 LEARNING CURVE ANALYSIS REQUESTED
+============================================================
+📊 Analyzing models: cnn_lstm, tcn, dual_branch
+📈 Sample fractions: [0.05, 0.1, 0.2, 0.3, 0.5, 0.7, 1.0]
+🔄 CV folds: 3
+🚀 LEARNING CURVE ANALYSIS STARTING
+============================================================
+📊 Dataset size: 25,804 training samples
+🔍 Models to analyze: cnn_lstm, tcn, dual_branch
+📈 Sample fractions: [0.05, 0.1, 0.2, 0.3, 0.5, 0.7, 1.0]
+🔄 Cross-validation folds: 3
+
+🔍 Analyzing learning curve for CNN_LSTM
+============================================================
+
+📊 Training on 5.0% of data...
+   💾 Memory before: 1.91GB
+[DEBUG] CNN-LSTM input_shape received: (6016, 1)
+[INFO] Assuming format: (timesteps=6016, features=1)
+2025-06-05 16:24:45.991369: I tensorflow/core/common_runtime/gpu/gpu_process_state.cc:227] Using CUDA malloc Async allocator for GPU: 0
+2025-06-05 16:24:46.101382: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1639] Created device /job:localhost/replica:0/task:0/device:GPU:0 with 1875 MB memory:  -> device: 0, name: NVIDIA GeForce GTX 1050, pci bus id: 0000:01:00.0, compute capability: 6.1
+🔧 Creating adam optimizer with lr=5e-05
+2025-06-05 16:24:56.382748: I tensorflow/compiler/xla/stream_executor/cuda/cuda_dnn.cc:432] Loaded cuDNN version 8907
+   Fold 1: Train=0.923, Val=1.000, Time=238.6s
+🧹 Cleaning up TensorFlow memory...
+✅ Memory cleanup completed
+[DEBUG] CNN-LSTM input_shape received: (6016, 1)
+[INFO] Assuming format: (timesteps=6016, features=1)
+🔧 Creating adam optimizer with lr=5e-05
+   Fold 2: Train=0.998, Val=1.000, Time=290.7s
+🧹 Cleaning up TensorFlow memory...
+✅ Memory cleanup completed
+[DEBUG] CNN-LSTM input_shape received: (6016, 1)
+[INFO] Assuming format: (timesteps=6016, features=1)
+🔧 Creating adam optimizer with lr=5e-05
+   Fold 3: Train=0.993, Val=0.994, Time=415.0s
+🧹 Cleaning up TensorFlow memory...
+✅ Memory cleanup completed
+   💾 Memory after: 4.31GB (Δ+2.40GB)
+   📈 Average: Train=0.971±0.034, Val=0.998±0.003
+🧹 Cleaning up TensorFlow memory...
+✅ Memory cleanup completed
+
+📊 Training on 10.0% of data...
+   💾 Memory before: 4.30GB
+[DEBUG] CNN-LSTM input_shape received: (6016, 1)
+[INFO] Assuming format: (timesteps=6016, features=1)
+🔧 Creating adam optimizer with lr=5e-05
+   Fold 1: Train=0.997, Val=1.000, Time=256.9s
+🧹 Cleaning up TensorFlow memory...
+✅ Memory cleanup completed
+[DEBUG] CNN-LSTM input_shape received: (6016, 1)
+[INFO] Assuming format: (timesteps=6016, features=1)
+🔧 Creating adam optimizer with lr=5e-05
+   Fold 2: Train=1.000, Val=1.000, Time=300.6s
+🧹 Cleaning up TensorFlow memory...
+✅ Memory cleanup completed
+[DEBUG] CNN-LSTM input_shape received: (6016, 1)
+[INFO] Assuming format: (timesteps=6016, features=1)
+🔧 Creating adam optimizer with lr=5e-05
+   Fold 3: Train=0.992, Val=0.977, Time=261.1s
+🧹 Cleaning up TensorFlow memory...
+✅ Memory cleanup completed
+   💾 Memory after: 4.33GB (Δ+0.03GB)
+   📈 Average: Train=0.996±0.003, Val=0.992±0.011
+🧹 Cleaning up TensorFlow memory...
+✅ Memory cleanup completed
+
+📊 Training on 20.0% of data...
+   💾 Memory before: 4.33GB
+[DEBUG] CNN-LSTM input_shape received: (6016, 1)
+[INFO] Assuming format: (timesteps=6016, features=1)
+🔧 Creating adam optimizer with lr=5e-05
+   Fold 1: Train=1.000, Val=1.000, Time=346.7s
+🧹 Cleaning up TensorFlow memory...
+✅ Memory cleanup completed
+[DEBUG] CNN-LSTM input_shape received: (6016, 1)
+[INFO] Assuming format: (timesteps=6016, features=1)
+🔧 Creating adam optimizer with lr=5e-05
+   Fold 2: Train=1.000, Val=1.000, Time=229.7s
+🧹 Cleaning up TensorFlow memory...
+✅ Memory cleanup completed
+[DEBUG] CNN-LSTM input_shape received: (6016, 1)
+[INFO] Assuming format: (timesteps=6016, features=1)
+🔧 Creating adam optimizer with lr=5e-05
+   Fold 3: Train=1.000, Val=1.000, Time=289.8s
+🧹 Cleaning up TensorFlow memory...
+✅ Memory cleanup completed
+   💾 Memory after: 4.33GB (Δ+0.00GB)
+   📈 Average: Train=1.000±0.000, Val=1.000±0.000
+   🛑 Early stopping: Improvement 0.0021 < threshold 0.005
+   🎯 Optimal dataset size found at 20.0%
+🧹 Cleaning up TensorFlow memory...
+✅ Memory cleanup completed
+🧹 Memory cleaned up after cnn_lstm
+🧹 Cleaning up TensorFlow memory...
+✅ Memory cleanup completed
+
+🔍 Analyzing learning curve for TCN
+============================================================
+
+📊 Training on 5.0% of data...
+   💾 Memory before: 3.18GB
+🔧 Creating adam optimizer with lr=0.0001
+   Fold 1: Train=0.728, Val=0.670, Time=455.0s
+🧹 Cleaning up TensorFlow memory...
+✅ Memory cleanup completed
+🔧 Creating adam optimizer with lr=0.0001
+   Fold 2: Train=0.992, Val=0.732, Time=1120.1s
+🧹 Cleaning up TensorFlow memory...
+✅ Memory cleanup completed
+🔧 Creating adam optimizer with lr=0.0001
+   Fold 3: Train=0.999, Val=0.954, Time=1119.2s
+🧹 Cleaning up TensorFlow memory...
+✅ Memory cleanup completed
+   💾 Memory after: 4.37GB (Δ+1.19GB)
+   📈 Average: Train=0.906±0.126, Val=0.785±0.122
+🧹 Cleaning up TensorFlow memory...
+✅ Memory cleanup completed
+
+📊 Training on 10.0% of data...
+   💾 Memory before: 4.37GB
+🔧 Creating adam optimizer with lr=0.0001
+   Fold 1: Train=0.829, Val=0.645, Time=359.6s
+🧹 Cleaning up TensorFlow memory...
+✅ Memory cleanup completed
+🔧 Creating adam optimizer with lr=0.0001
+   Fold 2: Train=0.846, Val=0.688, Time=446.9s
+🧹 Cleaning up TensorFlow memory...
+✅ Memory cleanup completed
+🔧 Creating adam optimizer with lr=0.0001
+   Fold 3: Train=0.941, Val=0.686, Time=535.1s
+🧹 Cleaning up TensorFlow memory...
+✅ Memory cleanup completed
+   💾 Memory after: 4.38GB (Δ+0.01GB)
+   📈 Average: Train=0.872±0.049, Val=0.673±0.020
+🧹 Cleaning up TensorFlow memory...
+✅ Memory cleanup completed
+
+📊 Training on 20.0% of data...
+   💾 Memory before: 4.38GB
+🔧 Creating adam optimizer with lr=0.0001
+   Fold 1: Train=1.000, Val=0.970, Time=1748.1s
+🧹 Cleaning up TensorFlow memory...
+✅ Memory cleanup completed
+🔧 Creating adam optimizer with lr=0.0001
+   Fold 2: Train=0.997, Val=0.747, Time=701.2s
+🧹 Cleaning up TensorFlow memory...
+✅ Memory cleanup completed
+🔧 Creating adam optimizer with lr=0.0001
+   Fold 3: Train=0.999, Val=0.855, Time=1743.6s
+🧹 Cleaning up TensorFlow memory...
+✅ Memory cleanup completed
+   ⏰ Time limit reached for sample size 0.2
+   💾 Memory after: 4.38GB (Δ+0.00GB)
+   📈 Average: Train=0.999±0.001, Val=0.857±0.091
+🧹 Cleaning up TensorFlow memory...
+✅ Memory cleanup completed
+
+📊 Training on 30.0% of data...
+   💾 Memory before: 4.38GB
+🔧 Creating adam optimizer with lr=0.0001
+   Fold 1: Train=1.000, Val=0.880, Time=2175.3s
+🧹 Cleaning up TensorFlow memory...
+✅ Memory cleanup completed
+🔧 Creating adam optimizer with lr=0.0001
+^C🧹 Cleaning up TensorFlow memory...
+✅ Memory cleanup completed

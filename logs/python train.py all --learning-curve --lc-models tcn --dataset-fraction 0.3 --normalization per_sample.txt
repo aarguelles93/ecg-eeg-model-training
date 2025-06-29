@@ -1,0 +1,159 @@
+(tf-gpu-env) root@DESKTOP-08HJS8G:/mnt/d/Documents/Projects/Thesis/src# python train.py all --learning-curve --lc-models tcn --dataset-fraction 0.3 --normalization per_sample
+🔧 Environment variables set for TensorFlow/CUDA compatibility
+✅ Import safety check passed - TensorFlow not yet imported
+2025-06-05 21:48:48.387117: I tensorflow/core/platform/cpu_feature_guard.cc:182] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2025-06-05 21:48:56.189627: W tensorflow/compiler/tf2tensorrt/utils/py_utils.cc:38] TF-TRT Warning: Could not find TensorRT
+🔧 Setting up GPU configuration...
+🚀 Setting up GPU-friendly configuration for GTX 1050 (2GB VRAM)...
+✅ CUDA libdevice path set to: /usr/lib/cuda
+🔧 Configuring GPU memory settings...
+2025-06-05 21:49:16.078953: I tensorflow/compiler/xla/stream_executor/cuda/cuda_gpu_executor.cc:981] could not open file to read NUMA node: /sys/bus/pci/devices/0000:01:00.0/numa_node
+Your kernel may have been built without NUMA support.
+2025-06-05 21:49:16.143085: I tensorflow/compiler/xla/stream_executor/cuda/cuda_gpu_executor.cc:981] could not open file to read NUMA node: /sys/bus/pci/devices/0000:01:00.0/numa_node
+Your kernel may have been built without NUMA support.
+2025-06-05 21:49:16.143195: I tensorflow/compiler/xla/stream_executor/cuda/cuda_gpu_executor.cc:981] could not open file to read NUMA node: /sys/bus/pci/devices/0000:01:00.0/numa_node
+Your kernel may have been built without NUMA support.
+✅ Found 1 GPU(s): ['/physical_device:GPU:0']
+✅ Memory growth enabled for /physical_device:GPU:0
+🔧 Configuring TensorFlow memory management...
+✅ Memory growth enabled for /physical_device:GPU:0
+✅ Using float32 precision (optimized for GTX 1050/Pascal)
+   This provides better performance than mixed precision on compute capability 6.1
+✅ GPU configuration complete! GTX 1050 optimized with correct CUDA paths.
+✅ GPU configuration successful - using optimized settings
+🚀 ENHANCED TRAINING PIPELINE
+======================================================================
+🔧 Normalization: per_sample (strategy: separate)
+📊 Dataset fraction: 30.0%
+💾 Memory limit: 3.5GB
+🎯 Validation strategy: auto
+📊 Memory monitoring: Enabled
+📈 Progress bars: Enabled
+🖥️  GPU optimization: Enabled
+
+📊 Initial system status:
+💾 Initial memory usage: 0.44GB
+
+📦 Preparing dataset with smart normalization...
+🧠 Memory limit applied: 3.5GB
+   📊 Calculated chunk size: 5,000 samples
+   📊 Estimated memory per chunk: 0.11GB
+🔍 Checking cached dataset: data/preprocessed_dataset.npz
+✅ Cache parameters match - loading cached data
+📊 Cached data loaded:
+   Train: (25804, 6016) | Test: (6452, 6016)
+   Range: [-4.826004, 5.000000]
+✅ Dataset ready!
+   📊 Dataset loaded in 15.5s
+   🚀 Train: (25804, 6016), Test: (6452, 6016)
+   📉 Using 30.0% of full dataset
+   📈 Total features: 6,016
+   🧠 EEG structure: 32 channels × 188 timepoints
+   💾 Memory usage: 1.89GB (Δ+1.45GB)
+   🔢 Data range: [-4.826, 5.000]
+   📊 Data stats: mean=-0.002264, std=0.987077
+   ✅ No extreme outliers detected - normalization looks good!
+
+🎯 LEARNING CURVE ANALYSIS REQUESTED
+============================================================
+📊 Analyzing models: tcn
+📈 Sample fractions: [0.05, 0.1, 0.2, 0.3, 0.5, 0.7, 1.0]
+🔄 CV folds: 3
+🚀 LEARNING CURVE ANALYSIS STARTING
+============================================================
+📊 Dataset size: 25,804 training samples
+🔍 Models to analyze: tcn
+📈 Sample fractions: [0.05, 0.1, 0.2, 0.3, 0.5, 0.7, 1.0]
+🔄 Cross-validation folds: 3
+
+🔍 Analyzing learning curve for TCN
+============================================================
+
+📊 Training on 5.0% of data...
+   💾 Memory before: 1.91GB
+2025-06-05 21:49:36.461797: I tensorflow/compiler/xla/stream_executor/cuda/cuda_gpu_executor.cc:981] could not open file to read NUMA node: /sys/bus/pci/devices/0000:01:00.0/numa_node
+Your kernel may have been built without NUMA support.
+Your kernel may have been built without NUMA support.
+2025-06-05 21:49:39.021065: I tensorflow/core/common_runtime/gpu/gpu_process_state.cc:227] Using CUDA malloc Async allocator for GPU: 0
+2025-06-05 21:49:39.099625: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1639] Created device /job:localhost/replica:0/task:0/device:GPU:0 with 1875 MB memory:  -> device: 0, name: NVIDIA GeForce GTX 1050, pci bus id: 0000:01:00.0, compute capability: 6.1
+🔧 Creating adam optimizer with lr=0.0002
+2025-06-05 21:49:42.910291: I tensorflow/compiler/xla/stream_executor/cuda/cuda_dnn.cc:432] Loaded cuDNN version 8907
+   Fold 1: Train=0.986, Val=0.987, Time=81.5s
+🧹 Cleaning up TensorFlow memory...
+✅ Memory cleanup completed
+🔧 Creating adam optimizer with lr=0.0002
+   Fold 2: Train=0.956, Val=0.928, Time=47.6s
+🧹 Cleaning up TensorFlow memory...
+✅ Memory cleanup completed
+🔧 Creating adam optimizer with lr=0.0002
+   Fold 3: Train=0.848, Val=0.500, Time=41.0s
+🧹 Cleaning up TensorFlow memory...
+✅ Memory cleanup completed
+   💾 Memory after: 4.28GB (Δ+2.37GB)
+   📈 Average: Train=0.930±0.059, Val=0.805±0.217
+🧹 Cleaning up TensorFlow memory...
+✅ Memory cleanup completed
+
+📊 Training on 10.0% of data...
+   💾 Memory before: 4.28GB
+🔧 Creating adam optimizer with lr=0.0002
+   Fold 1: Train=0.994, Val=0.991, Time=139.6s
+🧹 Cleaning up TensorFlow memory...
+✅ Memory cleanup completed
+🔧 Creating adam optimizer with lr=0.0002
+   Fold 2: Train=0.992, Val=0.990, Time=139.1s
+🧹 Cleaning up TensorFlow memory...
+✅ Memory cleanup completed
+🔧 Creating adam optimizer with lr=0.0002
+   Fold 3: Train=0.995, Val=0.991, Time=137.8s
+🧹 Cleaning up TensorFlow memory...
+✅ Memory cleanup completed
+   💾 Memory after: 4.32GB (Δ+0.03GB)
+   📈 Average: Train=0.994±0.001, Val=0.991±0.001
+🧹 Cleaning up TensorFlow memory...
+✅ Memory cleanup completed
+
+📊 Training on 20.0% of data...
+   💾 Memory before: 4.32GB
+🔧 Creating adam optimizer with lr=0.0002
+   Fold 1: Train=0.997, Val=0.998, Time=190.4s
+🧹 Cleaning up TensorFlow memory...
+✅ Memory cleanup completed
+🔧 Creating adam optimizer with lr=0.0002
+   Fold 2: Train=0.995, Val=0.996, Time=188.4s
+🧹 Cleaning up TensorFlow memory...
+✅ Memory cleanup completed
+🔧 Creating adam optimizer with lr=0.0002
+   Fold 3: Train=0.996, Val=0.999, Time=188.7s
+🧹 Cleaning up TensorFlow memory...
+✅ Memory cleanup completed
+   💾 Memory after: 4.33GB (Δ+0.02GB)
+   📈 Average: Train=0.996±0.001, Val=0.998±0.001
+🧹 Cleaning up TensorFlow memory...
+✅ Memory cleanup completed
+
+📊 Training on 30.0% of data...
+   💾 Memory before: 4.33GB
+🔧 Creating adam optimizer with lr=0.0002
+   Fold 1: Train=0.999, Val=0.999, Time=224.5s
+🧹 Cleaning up TensorFlow memory...
+✅ Memory cleanup completed
+🔧 Creating adam optimizer with lr=0.0002
+   Fold 2: Train=0.999, Val=1.000, Time=238.9s
+🧹 Cleaning up TensorFlow memory...
+✅ Memory cleanup completed
+🔧 Creating adam optimizer with lr=0.0002
+   Fold 3: Train=0.999, Val=0.999, Time=240.4s
+🧹 Cleaning up TensorFlow memory...
+✅ Memory cleanup completed
+   💾 Memory after: 4.34GB (Δ+0.01GB)
+   📈 Average: Train=0.999±0.000, Val=0.999±0.000
+🧹 Cleaning up TensorFlow memory...
+✅ Memory cleanup completed
+
+📊 Training on 50.0% of data...
+   💾 Memory before: 4.34GB
+🔧 Creating adam optimizer with lr=0.0002
+^C🧹 Cleaning up TensorFlow memory...
+✅ Memory cleanup completed

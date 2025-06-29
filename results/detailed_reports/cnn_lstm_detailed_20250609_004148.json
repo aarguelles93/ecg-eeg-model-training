@@ -1,0 +1,16 @@
+{
+  "model_name": "cnn_lstm",
+  "evaluation_timestamp": "20250609_004148",
+  "test_samples": 6273,
+  "ecg_samples": 896,
+  "eeg_samples": 5377,
+  "inference_time_ms": 3328.078269958496,
+  "accuracy": 1.0,
+  "precision": 1.0,
+  "recall": 1.0,
+  "f1_score": 1.0,
+  "mcc": 1.0,
+  "cohen_kappa": 1.0,
+  "roc_auc": 1.0,
+  "pr_auc": 1.0
+}

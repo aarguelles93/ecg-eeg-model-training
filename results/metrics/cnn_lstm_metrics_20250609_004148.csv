@@ -1,0 +1,2 @@
+model_name,evaluation_timestamp,test_samples,ecg_samples,eeg_samples,inference_time_ms,accuracy,precision,recall,f1_score,mcc,cohen_kappa,roc_auc,pr_auc
+cnn_lstm,20250609_004148,6273,896,5377,3328.078269958496,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0

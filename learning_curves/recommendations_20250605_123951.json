@@ -1,0 +1,29 @@
+{
+  "mlp": {
+    "optimal_samples": 5160,
+    "optimal_fraction": 0.2,
+    "best_val_accuracy": 0.999922494093577,
+    "efficient_samples": 2580,
+    "efficient_fraction": 0.1,
+    "overfitting_severity": "Low",
+    "recommended_action": "\u2705 EXCELLENT! Model performs well with only 20.0% of data"
+  },
+  "simple_cnn": {
+    "optimal_samples": 5160,
+    "optimal_fraction": 0.2,
+    "best_val_accuracy": 0.9998837312062582,
+    "efficient_samples": 2580,
+    "efficient_fraction": 0.1,
+    "overfitting_severity": "Low",
+    "recommended_action": "\u2705 EXCELLENT! Model performs well with only 20.0% of data"
+  },
+  "svm": {
+    "optimal_samples": 5160,
+    "optimal_fraction": 0.2,
+    "best_val_accuracy": 0.9999612448164942,
+    "efficient_samples": 1290,
+    "efficient_fraction": 0.05,
+    "overfitting_severity": "Low",
+    "recommended_action": "\u2705 EXCELLENT! Model performs well with only 20.0% of data"
+  }
+}

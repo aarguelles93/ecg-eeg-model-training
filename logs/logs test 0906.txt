@@ -1,0 +1,413 @@
+(venv) root@DESKTOP-08HJS8G:/mnt/d/Documents/Projects/Thesis/src# python test.py --normalization zscore --dataset-fraction 0.5 --norm-strategy separate
+✅ Import safety check passed - TensorFlow not yet imported
+2025-06-09 00:41:47.114406: E external/local_xla/xla/stream_executor/cuda/cuda_dnn.cc:9261] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+2025-06-09 00:41:47.114517: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:607] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+2025-06-09 00:41:47.117036: E external/local_xla/xla/stream_executor/cuda/cuda_blas.cc:1515] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+2025-06-09 00:41:47.127505: I tensorflow/core/platform/cpu_feature_guard.cc:182] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2025-06-09 00:41:48.030815: W tensorflow/compiler/tf2tensorrt/utils/py_utils.cc:38] TF-TRT Warning: Could not find TensorRT
+🚀 MODERN MODEL EVALUATION PIPELINE
+======================================================================
+🔧 Dataset Parameters:
+   normalization: zscore
+   normalization_strategy: separate
+   dataset_fraction: 0.5
+   force_reload: False
+
+⚠️  IMPORTANT: Using dataset_fraction=0.5
+   🎯 Ensure this matches the training dataset_fraction!
+   🎯 Otherwise evaluation results will be invalid!
+🎯 ModelEvaluator initialized
+   📁 Results dir: results
+   📁 Models dir: models
+   📊 Results structure:
+      confusion_matrices: confusion_matrices/
+      roc_curves: roc_curves/
+      metrics: metrics/
+      comparisons: comparisons/
+      detailed_reports: detailed_reports/
+📊 Memory initial: CPU=0.50GB, GPU=0.09GB
+
+📦 Loading cached dataset with parameter validation...
+📦 Loading test dataset with modern pipeline...
+   📁 ECG data: data/mitbih_from_raw.csv
+   📁 EEG data: data/eeg_dataset_32.csv
+   🔧 Dataset parameters: {'normalization': 'zscore', 'normalization_strategy': 'separate', 'validate_alignment': True}
+🔍 Checking cached dataset: data/preprocessed_dataset.npz
+   Cache parameters: {'normalization': 'zscore', 'normalization_strategy': 'separate', 'validate_alignment': True, 'ecg_path': 'data/mitbih_from_raw.csv', 'eeg_path': 'data/eeg_dataset_32.csv'}
+✅ Cache parameters match - loading cached data
+📊 Cached data loaded:
+   Train: (25089, 6016) | Test: (6273, 6016)
+   Range: [-25.510871, 29.254957]
+✅ Dataset loaded in 26.1s
+   📊 Train: (25089, 6016), Test: (6273, 6016)
+   🏷️  Train labels: [ 3586 21503], Test labels: [ 896 5377]
+   📈 Feature range: [-26.148, 24.074]
+   🧠 EEG structure: 32ch × 188tp
+
+🔍 Discovering trained models...
+🔍 Searching for trained models...
+   ✅ Found svm: models/svm_model.joblib
+   ✅ Found simple_cnn: models/simple_cnn_best.keras
+   ✅ Found cnn_lstm: models/cnn_lstm_best.keras
+   ✅ Found mlp: models/mlp_best.keras
+   ✅ Found tcn: models/tcn_best.keras
+   ✅ Found dual_branch: models/dual_branch_best.keras
+
+🎯 Evaluating 6 models...
+
+==================== SVM ====================
+
+🔍 Evaluating SVM...
+📊 Memory before SVM evaluation: CPU=1.93GB, GPU=0.09GB
+   ✅ SVM model loaded from models/svm_model.joblib
+   📊 Input shape: (6273, 6016)
+   ⏱️  Inference time: 19364.6ms for 6273 samples
+   📊 Confusion matrix saved: confusion_matrices/SVM_confusion_matrix_20250609_004148.png
+   📈 ROC/PR curves saved: roc_curves/SVM_curves_20250609_004148.png
+
+📊 EVALUATION SUMMARY: SVM
+============================================================
+Confusion Matrix:
+              Predicted
+           ECG    EEG
+Actual ECG  896      0
+       EEG    1    5376
+
+Performance Metrics:
+   Accuracy:      0.9998
+   Precision:     1.0000
+   Recall:        0.9998
+   F1-Score:      0.9999
+   MCC:           0.9993
+   Cohen's Kappa: 0.9993
+   ROC AUC:       1.0000
+   PR AUC:        1.0000
+
+Detailed Classification Report:
+              precision    recall  f1-score   support
+
+         ECG       1.00      1.00      1.00       896
+         EEG       1.00      1.00      1.00      5377
+
+    accuracy                           1.00      6273
+   macro avg       1.00      1.00      1.00      6273
+weighted avg       1.00      1.00      1.00      6273
+
+   💾 Metrics saved: metrics/SVM_metrics_20250609_004148.csv
+   💾 Summary updated: comparisons/evaluation_summary_20250609_004148.csv
+   💾 Detailed report: detailed_reports/SVM_detailed_20250609_004148.json
+📊 Memory after SVM evaluation: CPU=1.97GB, GPU=0.09GB
+
+==================== SIMPLE_CNN ====================
+
+🔍 Evaluating simple_cnn...
+📊 Memory before simple_cnn evaluation: CPU=1.95GB, GPU=0.09GB
+   🔄 Trying standard loading...
+2025-06-09 00:42:41.429184: I external/local_xla/xla/stream_executor/cuda/cuda_executor.cc:887] could not open file to read NUMA node: /sys/bus/pci/devices/0000:01:00.0/numa_node
+Your kernel may have been built without NUMA support.
+2025-06-09 00:42:44.898261: I external/local_xla/xla/stream_executor/cuda/cuda_executor.cc:887] could not open file to read NUMA node: /sys/bus/pci/devices/0000:01:00.0/numa_node
+Your kernel may have been built without NUMA support.
+2025-06-09 00:42:44.898367: I external/local_xla/xla/stream_executor/cuda/cuda_executor.cc:887] could not open file to read NUMA node: /sys/bus/pci/devices/0000:01:00.0/numa_node
+Your kernel may have been built without NUMA support.
+2025-06-09 00:42:44.899605: I external/local_xla/xla/stream_executor/cuda/cuda_executor.cc:887] could not open file to read NUMA node: /sys/bus/pci/devices/0000:01:00.0/numa_node
+Your kernel may have been built without NUMA support.
+2025-06-09 00:42:44.899786: I external/local_xla/xla/stream_executor/cuda/cuda_executor.cc:887] could not open file to read NUMA node: /sys/bus/pci/devices/0000:01:00.0/numa_node
+Your kernel may have been built without NUMA support.
+2025-06-09 00:42:44.899877: I external/local_xla/xla/stream_executor/cuda/cuda_executor.cc:887] could not open file to read NUMA node: /sys/bus/pci/devices/0000:01:00.0/numa_node
+Your kernel may have been built without NUMA support.
+2025-06-09 00:42:45.102700: I external/local_xla/xla/stream_executor/cuda/cuda_executor.cc:887] could not open file to read NUMA node: /sys/bus/pci/devices/0000:01:00.0/numa_node
+Your kernel may have been built without NUMA support.
+2025-06-09 00:42:45.102847: I external/local_xla/xla/stream_executor/cuda/cuda_executor.cc:887] could not open file to read NUMA node: /sys/bus/pci/devices/0000:01:00.0/numa_node
+Your kernel may have been built without NUMA support.
+2025-06-09 00:42:45.102904: I tensorflow/core/common_runtime/gpu/gpu_device.cc:2022] Could not identify NUMA node of platform GPU id 0, defaulting to 0.  Your kernel may not have been built with NUMA support.
+2025-06-09 00:42:45.103045: I external/local_xla/xla/stream_executor/cuda/cuda_executor.cc:887] could not open file to read NUMA node: /sys/bus/pci/devices/0000:01:00.0/numa_node
+Your kernel may have been built without NUMA support.
+2025-06-09 00:42:45.103126: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1929] Created device /job:localhost/replica:0/task:0/device:GPU:0 with 1989 MB memory:  -> device: 0, name: NVIDIA GeForce GTX 1050, pci bus id: 0000:01:00.0, compute capability: 6.1
+   ✅ Success with standard loading
+   ✅ Model loaded from models/simple_cnn_best.keras
+   📊 Model parameters: 95,409
+🔧 Preparing test data for simple_cnn...
+   Original shape: (6273, 6016)
+   EEG structure: 32ch × 188tp = 6016 features
+   Reshaped to EEG structure: (6273, 188, 32)
+   📊 Input shape: (6273, 188, 32)
+2025-06-09 00:42:54.981423: I external/local_xla/xla/stream_executor/cuda/cuda_dnn.cc:454] Loaded cuDNN version 8907
+   ⏱️  Inference time: 16840.3ms for 6273 samples
+   📊 Confusion matrix saved: confusion_matrices/simple_cnn_confusion_matrix_20250609_004148.png
+   📈 ROC/PR curves saved: roc_curves/simple_cnn_curves_20250609_004148.png
+
+📊 EVALUATION SUMMARY: SIMPLE_CNN
+============================================================
+Confusion Matrix:
+              Predicted
+           ECG    EEG
+Actual ECG  895      1
+       EEG    0    5377
+
+Performance Metrics:
+   Accuracy:      0.9998
+   Precision:     0.9998
+   Recall:        1.0000
+   F1-Score:      0.9999
+   MCC:           0.9993
+   Cohen's Kappa: 0.9993
+   ROC AUC:       1.0000
+   PR AUC:        1.0000
+
+Detailed Classification Report:
+              precision    recall  f1-score   support
+
+         ECG       1.00      1.00      1.00       896
+         EEG       1.00      1.00      1.00      5377
+
+    accuracy                           1.00      6273
+   macro avg       1.00      1.00      1.00      6273
+weighted avg       1.00      1.00      1.00      6273
+
+   💾 Metrics saved: metrics/simple_cnn_metrics_20250609_004148.csv
+   💾 Summary updated: comparisons/evaluation_summary_20250609_004148.csv
+   💾 Detailed report: detailed_reports/simple_cnn_detailed_20250609_004148.json
+🧹 Cleaning up TensorFlow memory...
+✅ Memory cleanup completed
+📊 Memory after simple_cnn evaluation: CPU=2.81GB, GPU=2.19GB
+
+==================== CNN_LSTM ====================
+
+🔍 Evaluating cnn_lstm...
+📊 Memory before cnn_lstm evaluation: CPU=2.81GB, GPU=2.19GB
+   🔄 Trying standard loading...
+   ✅ Success with standard loading
+   ✅ Model loaded from models/cnn_lstm_best.keras
+   📊 Model parameters: 9,649
+🔧 Preparing test data for cnn_lstm...
+   Original shape: (6273, 6016)
+   EEG structure: 32ch × 188tp = 6016 features
+   Reshaped to EEG structure: (6273, 188, 32)
+   📊 Input shape: (6273, 188, 32)
+   ⏱️  Inference time: 3328.1ms for 6273 samples
+   📊 Confusion matrix saved: confusion_matrices/cnn_lstm_confusion_matrix_20250609_004148.png
+   📈 ROC/PR curves saved: roc_curves/cnn_lstm_curves_20250609_004148.png
+
+📊 EVALUATION SUMMARY: CNN_LSTM
+============================================================
+Confusion Matrix:
+              Predicted
+           ECG    EEG
+Actual ECG  896      0
+       EEG    0    5377
+
+Performance Metrics:
+   Accuracy:      1.0000
+   Precision:     1.0000
+   Recall:        1.0000
+   F1-Score:      1.0000
+   MCC:           1.0000
+   Cohen's Kappa: 1.0000
+   ROC AUC:       1.0000
+   PR AUC:        1.0000
+
+Detailed Classification Report:
+              precision    recall  f1-score   support
+
+         ECG       1.00      1.00      1.00       896
+         EEG       1.00      1.00      1.00      5377
+
+    accuracy                           1.00      6273
+   macro avg       1.00      1.00      1.00      6273
+weighted avg       1.00      1.00      1.00      6273
+
+   💾 Metrics saved: metrics/cnn_lstm_metrics_20250609_004148.csv
+   💾 Summary updated: comparisons/evaluation_summary_20250609_004148.csv
+   💾 Detailed report: detailed_reports/cnn_lstm_detailed_20250609_004148.json
+🧹 Cleaning up TensorFlow memory...
+✅ Memory cleanup completed
+📊 Memory after cnn_lstm evaluation: CPU=2.85GB, GPU=2.19GB
+
+==================== MLP ====================
+
+🔍 Evaluating mlp...
+📊 Memory before mlp evaluation: CPU=2.85GB, GPU=2.19GB
+   🔄 Trying standard loading...
+   ✅ Success with standard loading
+   ✅ Model loaded from models/mlp_best.keras
+   📊 Model parameters: 387,201
+🔧 Preparing test data for mlp...
+   Original shape: (6273, 6016)
+   MLP flattened shape: (6273, 6016)
+   📊 Input shape: (6273, 6016)
+   ⏱️  Inference time: 1093.0ms for 6273 samples
+   📊 Confusion matrix saved: confusion_matrices/mlp_confusion_matrix_20250609_004148.png
+   📈 ROC/PR curves saved: roc_curves/mlp_curves_20250609_004148.png
+
+📊 EVALUATION SUMMARY: MLP
+============================================================
+Confusion Matrix:
+              Predicted
+           ECG    EEG
+Actual ECG  896      0
+       EEG    0    5377
+
+Performance Metrics:
+   Accuracy:      1.0000
+   Precision:     1.0000
+   Recall:        1.0000
+   F1-Score:      1.0000
+   MCC:           1.0000
+   Cohen's Kappa: 1.0000
+   ROC AUC:       1.0000
+   PR AUC:        1.0000
+
+Detailed Classification Report:
+              precision    recall  f1-score   support
+
+         ECG       1.00      1.00      1.00       896
+         EEG       1.00      1.00      1.00      5377
+
+    accuracy                           1.00      6273
+   macro avg       1.00      1.00      1.00      6273
+weighted avg       1.00      1.00      1.00      6273
+
+   💾 Metrics saved: metrics/mlp_metrics_20250609_004148.csv
+   💾 Summary updated: comparisons/evaluation_summary_20250609_004148.csv
+   💾 Detailed report: detailed_reports/mlp_detailed_20250609_004148.json
+🧹 Cleaning up TensorFlow memory...
+✅ Memory cleanup completed
+📊 Memory after mlp evaluation: CPU=2.87GB, GPU=2.19GB
+
+==================== TCN ====================
+
+🔍 Evaluating tcn...
+📊 Memory before tcn evaluation: CPU=2.87GB, GPU=2.19GB
+   🔄 Trying standard loading...
+   ✅ Success with standard loading
+   ✅ Model loaded from models/tcn_best.keras
+   📊 Model parameters: 8,945
+🔧 Preparing test data for tcn...
+   Original shape: (6273, 6016)
+   EEG structure: 32ch × 188tp = 6016 features
+   Reshaped to EEG structure: (6273, 188, 32)
+   📊 Input shape: (6273, 188, 32)
+   ⏱️  Inference time: 3708.2ms for 6273 samples
+   📊 Confusion matrix saved: confusion_matrices/tcn_confusion_matrix_20250609_004148.png
+   📈 ROC/PR curves saved: roc_curves/tcn_curves_20250609_004148.png
+
+📊 EVALUATION SUMMARY: TCN
+============================================================
+Confusion Matrix:
+              Predicted
+           ECG    EEG
+Actual ECG  895      1
+       EEG    0    5377
+
+Performance Metrics:
+   Accuracy:      0.9998
+   Precision:     0.9998
+   Recall:        1.0000
+   F1-Score:      0.9999
+   MCC:           0.9993
+   Cohen's Kappa: 0.9993
+   ROC AUC:       1.0000
+   PR AUC:        1.0000
+
+Detailed Classification Report:
+              precision    recall  f1-score   support
+
+         ECG       1.00      1.00      1.00       896
+         EEG       1.00      1.00      1.00      5377
+
+    accuracy                           1.00      6273
+   macro avg       1.00      1.00      1.00      6273
+weighted avg       1.00      1.00      1.00      6273
+
+   💾 Metrics saved: metrics/tcn_metrics_20250609_004148.csv
+   💾 Summary updated: comparisons/evaluation_summary_20250609_004148.csv
+   💾 Detailed report: detailed_reports/tcn_detailed_20250609_004148.json
+🧹 Cleaning up TensorFlow memory...
+✅ Memory cleanup completed
+📊 Memory after tcn evaluation: CPU=2.90GB, GPU=2.19GB
+
+==================== DUAL_BRANCH ====================
+
+🔍 Evaluating dual_branch...
+📊 Memory before dual_branch evaluation: CPU=2.90GB, GPU=2.19GB
+   🔄 Trying standard loading...
+   ✅ Success with standard loading
+   ✅ Model loaded from models/dual_branch_best.keras
+   📊 Model parameters: 8,953
+🔧 Preparing test data for dual_branch...
+   Original shape: (6273, 6016)
+   EEG structure: 32ch × 188tp = 6016 features
+   Reshaped to EEG structure: (6273, 188, 32)
+   📊 Input shape: (6273, 188, 32)
+   ⏱️  Inference time: 2082.8ms for 6273 samples
+   📊 Confusion matrix saved: confusion_matrices/dual_branch_confusion_matrix_20250609_004148.png
+   📈 ROC/PR curves saved: roc_curves/dual_branch_curves_20250609_004148.png
+
+📊 EVALUATION SUMMARY: DUAL_BRANCH
+============================================================
+Confusion Matrix:
+              Predicted
+           ECG    EEG
+Actual ECG  894      2
+       EEG    0    5377
+
+Performance Metrics:
+   Accuracy:      0.9997
+   Precision:     0.9996
+   Recall:        1.0000
+   F1-Score:      0.9998
+   MCC:           0.9987
+   Cohen's Kappa: 0.9987
+   ROC AUC:       1.0000
+   PR AUC:        1.0000
+
+Detailed Classification Report:
+              precision    recall  f1-score   support
+
+         ECG       1.00      1.00      1.00       896
+         EEG       1.00      1.00      1.00      5377
+
+    accuracy                           1.00      6273
+   macro avg       1.00      1.00      1.00      6273
+weighted avg       1.00      1.00      1.00      6273
+
+   💾 Metrics saved: metrics/dual_branch_metrics_20250609_004148.csv
+   💾 Summary updated: comparisons/evaluation_summary_20250609_004148.csv
+   💾 Detailed report: detailed_reports/dual_branch_detailed_20250609_004148.json
+🧹 Cleaning up TensorFlow memory...
+✅ Memory cleanup completed
+📊 Memory after dual_branch evaluation: CPU=2.90GB, GPU=2.19GB
+
+======================================================================
+
+🏆 MODEL COMPARISON REPORT
+================================================================================
+      Model  Accuracy  Precision  Recall  F1-Score  ROC AUC  PR AUC    MCC  Inference (ms)
+   cnn_lstm    1.0000     1.0000  1.0000    1.0000   1.0000  1.0000 1.0000       3328.0783
+        mlp    1.0000     1.0000  1.0000    1.0000   1.0000  1.0000 1.0000       1093.0448
+ simple_cnn    0.9998     0.9998  1.0000    0.9999   1.0000  1.0000 0.9993      16840.2574
+        tcn    0.9998     0.9998  1.0000    0.9999   1.0000  1.0000 0.9993       3708.1668
+        SVM    0.9998     1.0000  0.9998    0.9999   1.0000  1.0000 0.9993      19364.5797
+dual_branch    0.9997     0.9996  1.0000    0.9998   1.0000  1.0000 0.9987       2082.7563
+
+💾 Comparison saved: comparisons/model_comparison_20250609_004148.csv
+💾 Summary report: comparisons/performance_summary_20250609_004148.txt
+
+🏅 PERFORMANCE RANKINGS:
+   🥇 Best Overall (F1): cnn_lstm
+   🎯 Best Accuracy: cnn_lstm
+   📈 Best ROC AUC: cnn_lstm
+   ⚡ Fastest: mlp
+
+✅ EVALUATION COMPLETE!
+📁 Results organized in: results
+   📊 Confusion matrices: confusion_matrices/
+   📈 ROC/PR curves: roc_curves/
+   📋 Individual metrics: metrics/
+   🏆 Comparisons: comparisons/
+   📄 Detailed reports: detailed_reports/
+🕒 Timestamp: 20250609_004148
+🧹 Cleaning up TensorFlow memory...
+✅ Memory cleanup completed
+📊 Memory final: CPU=2.90GB, GPU=2.19GB

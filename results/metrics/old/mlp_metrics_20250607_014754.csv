@@ -1,0 +1,2 @@
+model_name,evaluation_timestamp,test_samples,ecg_samples,eeg_samples,inference_time_ms,accuracy,precision,recall,f1_score,mcc,cohen_kappa,roc_auc,pr_auc
+mlp,20250607_014754,10752,5376,5376,3291.598320007324,0.9999069940476191,0.9998140226892319,1.0,0.9999070026969218,0.9998140053922349,0.9998139880952381,1.0,1.0

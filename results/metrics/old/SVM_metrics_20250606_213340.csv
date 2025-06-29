@@ -1,0 +1,2 @@
+model_name,evaluation_timestamp,test_samples,ecg_samples,eeg_samples,inference_time_ms,accuracy,precision,recall,f1_score,mcc,cohen_kappa,roc_auc,pr_auc
+SVM,20250606_213340,21504,10752,10752,31291.049480438232,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0

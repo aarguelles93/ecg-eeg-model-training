@@ -1,0 +1,2 @@
+model_name,evaluation_timestamp,test_samples,ecg_samples,eeg_samples,inference_time_ms,accuracy,precision,recall,f1_score,mcc,cohen_kappa,roc_auc,pr_auc
+dual_branch,20250609_004148,6273,896,5377,2082.756280899048,0.9996811732823211,0.9996281836772635,1.0,0.9998140572703608,0.9986975872441414,0.9986967391053684,1.0,1.0
