@@ -1,0 +1,80 @@
+
+Evaluating SVM...
+
+Evaluation for SVM
+[[3224    2]
+ [   0 1290]]
+              precision    recall  f1-score   support
+
+         ECG       1.00      1.00      1.00      3226
+         EEG       1.00      1.00      1.00      1290
+
+    accuracy                           1.00      4516
+   macro avg       1.00      1.00      1.00      4516
+weighted avg       1.00      1.00      1.00      4516
+
+
+Evaluating Simple CNN...
+2025-05-30 21:15:51.962667: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: SSE3 SSE4.1 SSE4.2 AVX AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+142/142 ━━━━━━━━━━━━━━━━━━━━ 1s 3ms/step   
+
+Evaluation for Simple CNN
+[[3218    8]
+ [  77 1213]]
+              precision    recall  f1-score   support
+
+         ECG       0.98      1.00      0.99      3226
+         EEG       0.99      0.94      0.97      1290
+
+    accuracy                           0.98      4516
+   macro avg       0.99      0.97      0.98      4516
+weighted avg       0.98      0.98      0.98      4516
+
+
+Evaluating CNN-LSTM...
+142/142 ━━━━━━━━━━━━━━━━━━━━ 2s 12ms/step   
+
+Evaluation for CNN-LSTM
+[[3226    0]
+ [ 152 1138]]
+              precision    recall  f1-score   support
+
+         ECG       0.96      1.00      0.98      3226
+         EEG       1.00      0.88      0.94      1290
+
+    accuracy                           0.97      4516
+   macro avg       0.98      0.94      0.96      4516
+weighted avg       0.97      0.97      0.97      4516
+
+
+Evaluating MLP...
+142/142 ━━━━━━━━━━━━━━━━━━━━ 0s 2ms/step   
+
+Evaluation for MLP
+[[3226    0]
+ [   0 1290]]
+              precision    recall  f1-score   support
+
+         ECG       1.00      1.00      1.00      3226
+         EEG       1.00      1.00      1.00      1290
+
+    accuracy                           1.00      4516
+   macro avg       1.00      1.00      1.00      4516
+weighted avg       1.00      1.00      1.00      4516
+
+
+Evaluating TCN...
+142/142 ━━━━━━━━━━━━━━━━━━━━ 5s 31ms/step  
+
+Evaluation for TCN
+[[3084  142]
+ [  42 1248]]
+              precision    recall  f1-score   support
+
+         ECG       0.99      0.96      0.97      3226
+         EEG       0.90      0.97      0.93      1290
+
+    accuracy                           0.96      4516
+   macro avg       0.94      0.96      0.95      4516
+weighted avg       0.96      0.96      0.96      4516

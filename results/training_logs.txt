@@ -1,0 +1,62 @@
+ Evaluation for SVM
+[[3221    5]
+ [   0 1290]]
+              precision    recall  f1-score   support
+
+         ECG       1.00      1.00      1.00      3226
+         EEG       1.00      1.00      1.00      1290
+
+    accuracy                           1.00      4516
+   macro avg       1.00      1.00      1.00      4516
+weighted avg       1.00      1.00      1.00      4516
+
+
+Evaluation for simple_cnn
+[[3218    8]
+ [  62 1228]]
+              precision    recall  f1-score   support
+
+         ECG       0.98      1.00      0.99      3226
+         EEG       0.99      0.95      0.97      1290
+
+    accuracy                           0.98      4516
+   macro avg       0.99      0.97      0.98      4516
+weighted avg       0.98      0.98      0.98      4516
+
+Evaluation for cnn_lstm
+[[3226    0]
+ [ 159 1131]]
+              precision    recall  f1-score   support
+
+         ECG       0.95      1.00      0.98      3226
+         EEG       1.00      0.88      0.93      1290
+
+    accuracy                           0.96      4516
+   macro avg       0.98      0.94      0.96      4516
+weighted avg       0.97      0.96      0.96      4516
+
+
+Evaluation for mlp
+[[3225    1]
+ [   0 1290]]
+              precision    recall  f1-score   support
+
+         ECG       1.00      1.00      1.00      3226
+         EEG       1.00      1.00      1.00      1290
+
+    accuracy                           1.00      4516
+   macro avg       1.00      1.00      1.00      4516
+weighted avg       1.00      1.00      1.00      4516
+ 
+
+Evaluation for tcn
+[[3071  155]
+ [  33 1257]]
+              precision    recall  f1-score   support
+
+         ECG       0.99      0.95      0.97      3226
+         EEG       0.89      0.97      0.93      1290
+
+    accuracy                           0.96      4516
+   macro avg       0.94      0.96      0.95      4516
+weighted avg       0.96      0.96      0.96      4516

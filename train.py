@@ -18,6 +18,7 @@ from models import (
     build_simple_cnn, build_cnn_lstm, build_svm_model, build_tcn,
     build_mlp, build_dual_branch_cnn
 )
+from sklearn.utils.class_weight import compute_class_weight
 from sklearn.metrics import confusion_matrix, classification_report
 from sklearn.model_selection import StratifiedKFold
 
