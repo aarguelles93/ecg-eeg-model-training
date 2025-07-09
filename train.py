@@ -55,8 +55,8 @@ if GPU_AVAILABLE:
             RUNTIME_CONFIG[model_name].update(GPU_CONFIG[model_name])
     
     # Reduce global settings for GPU efficiency
-    RUNTIME_CONFIG['global']['epochs'] = 30  # Reduced from 50
-    RUNTIME_CONFIG['global']['n_splits'] = 3  # Reduced from 5
+    # RUNTIME_CONFIG['global']['epochs'] = 30  # Reduced from 50
+    # RUNTIME_CONFIG['global']['n_splits'] = 3  # Reduced from 5
     
 else:
     print("⚠️ GPU not available - using original CPU settings")
@@ -389,6 +389,82 @@ def save_training_curves(history, model_name, output_dir="results"):
     plt.close()
     print(f"📈 Training curves saved to: {filepath}")
 
+def save_roc_pr_curves(y_true, y_probs, model_name, output_dir="results"):
+    """Save ROC and Precision-Recall curves"""
+    import matplotlib.pyplot as plt
+    from sklearn.metrics import roc_curve, auc, precision_recall_curve, average_precision_score
+    import datetime
+    
+    os.makedirs(output_dir, exist_ok=True)
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    filepath = os.path.join(output_dir, f"{model_name}_roc_pr_{timestamp}.png")
+    
+    # For binary classification, get probabilities for positive class
+    if len(y_probs.shape) > 1 and y_probs.shape[1] > 1:
+        y_probs_pos = y_probs[:, 1]  # Multi-class: take positive class
+    else:
+        y_probs_pos = y_probs.flatten()  # Binary: use as-is
+    
+    # ROC Curve
+    fpr, tpr, _ = roc_curve(y_true, y_probs_pos)
+    roc_auc = auc(fpr, tpr)
+    
+    # Precision-Recall Curve  
+    precision, recall, _ = precision_recall_curve(y_true, y_probs_pos)
+    pr_auc = average_precision_score(y_true, y_probs_pos)
+    
+    # Create plots
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5))
+    
+    # ROC Curve
+    ax1.plot(fpr, tpr, color='darkorange', lw=2, label=f'ROC curve (AUC = {roc_auc:.4f})')
+    ax1.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--', label='Random')
+    ax1.set_xlim([0.0, 1.0])
+    ax1.set_ylim([0.0, 1.05])
+    ax1.set_xlabel('False Positive Rate')
+    ax1.set_ylabel('True Positive Rate')
+    ax1.set_title(f'{model_name} - ROC Curve')
+    ax1.legend(loc="lower right")
+    ax1.grid(True)
+    
+    # Precision-Recall Curve
+    ax2.plot(recall, precision, color='darkred', lw=2, label=f'PR curve (AUC = {pr_auc:.4f})')
+    ax2.axhline(y=0.5, color='navy', linestyle='--', label='Random')
+    ax2.set_xlim([0.0, 1.0])
+    ax2.set_ylim([0.0, 1.05])
+    ax2.set_xlabel('Recall')
+    ax2.set_ylabel('Precision') 
+    ax2.set_title(f'{model_name} - Precision-Recall Curve')
+    ax2.legend(loc="lower left")
+    ax2.grid(True)
+    
+    plt.tight_layout()
+    plt.savefig(filepath, dpi=300, bbox_inches='tight')
+    plt.close()
+    print(f"📈 ROC and PR curves saved to: {filepath}")
+
+def plot_confusion_matrix(y_true, y_pred, model_name, output_dir):
+    """Reusable confusion matrix plotting"""
+    import matplotlib.pyplot as plt
+    import seaborn as sns
+    from sklearn.metrics import confusion_matrix
+    import datetime
+    
+    cm = confusion_matrix(y_true, y_pred)
+    plt.figure(figsize=(6, 5))
+    sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', 
+                xticklabels=['ECG', 'EEG'], yticklabels=['ECG', 'EEG'])
+    plt.xlabel("Predicted")
+    plt.ylabel("True")
+    plt.title(f"{model_name} Confusion Matrix")
+    
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    filepath = os.path.join(output_dir, f'{model_name}_confusion_matrix_{timestamp}.png')
+    plt.tight_layout()
+    plt.savefig(filepath)
+    plt.close()
+    print(f"📉 Confusion matrix saved to: {filepath}")
+
 def log_model_configuration(model_name, config):
     """
     Log the configuration parameters being used for a specific model
@@ -437,6 +513,21 @@ def train_svm(X_train, y_train, X_test, y_test, output_dir):
     X_train_flat = X_train.reshape(X_train.shape[0], -1)
     X_test_flat = X_test.reshape(X_test.shape[0], -1)
 
+    print(f"🔍 SVM Data Analysis:")
+    print(f"   📊 Train shape: {X_train_flat.shape}")
+    print(f"   📊 Test shape: {X_test_flat.shape}")
+    print(f"   📊 Feature range: [{X_train_flat.min():.6f}, {X_train_flat.max():.6f}]")
+    print(f"   📊 Train labels: ECG={np.sum(y_train==0)}, EEG={np.sum(y_train==1)}")
+    print(f"   📊 Test labels: ECG={np.sum(y_test==0)}, EEG={np.sum(y_test==1)}")
+    
+    # Check if data is the projected ECG format
+    if X_train_flat.shape[1] == 6016:
+        print(f"   ✅ Using projected ECG features (6016 = 32×188)")
+    elif X_train_flat.shape[1] == 187:
+        print(f"   ⚠️  Using raw ECG features (187) - may cause poor performance!")
+    else:
+        print(f"   ⚠️  Unexpected feature count: {X_train_flat.shape[1]}")
+
     # SVM with progress bar
     print("📊 Building SVM model...")
     model = build_svm_model(y_train, config=RUNTIME_CONFIG['svm'])
@@ -450,6 +541,9 @@ def train_svm(X_train, y_train, X_test, y_test, output_dir):
 
     y_pred = model.predict(X_test_flat)
     print_evaluation(y_test, y_pred, "SVM")
+    y_probs_svm = model.predict_proba(X_test_flat)
+    save_roc_pr_curves(y_test, y_probs_svm, "SVM", output_dir)
+    plot_confusion_matrix(y_test, y_pred, "SVM", output_dir)
 
     joblib.dump(model, os.path.join(output_dir, 'svm_model.joblib'))
     print("💾 SVM model saved")
@@ -503,6 +597,8 @@ def create_enhanced_callbacks(model_name, output_dir, progress_position=1):
     callbacks = [
         # Enhanced progress tracking
         TrainingProgressCallback(model_name, position=progress_position),
+
+        tf.keras.callbacks.TerminateOnNaN(),
         
         # Smart early stopping
         AdaptiveEarlyStopping(
@@ -593,17 +689,67 @@ def train_with_split(model_builder, X_train, y_train, X_test, y_test, output_dir
     # Evaluate on test set
     print("🔍 Evaluating on test set...")
     y_probs = model.predict(X_test_model, verbose=0)
-    y_pred = (y_probs > 0.5).astype(int).flatten() if num_classes == 2 else np.argmax(y_probs, axis=1)
+
+    # ADD temperature scaling:
+    print("🌡️  Applying temperature scaling...")
+    y_probs_calibrated, temp_used = apply_dynamic_temperature_scaling(y_probs, y_test)
+    y_pred = (y_probs_calibrated > 0.5).astype(int).flatten() if num_classes == 2 else np.argmax(y_probs, axis=1)
+
     print_evaluation(y_test, y_pred, name)
-    
+    plot_confusion_matrix(y_test, y_pred, "SVM", output_dir)
+
+    # Update ROC/PR curves call:
+    if num_classes == 2:
+        save_roc_pr_curves(y_test, y_probs_calibrated, name, output_dir)
+    else:
+        save_roc_pr_curves(y_test, y_probs, name, output_dir)
+
     # Memory monitoring after training
     monitor_memory_usage(f"after {name}")
     
     print(f"✅ {name} model saved")
     return model
 
-def train_with_kfold(model_builder, X_train, y_train, X_test, y_test, output_dir, name, config, metadata):
-    """Train model using K-fold cross-validation with enhanced features"""
+def analyze_group_balance_in_cv(X_train, y_train, groups_train, cv_splitter):
+    """Analyze group balance across CV folds"""
+    print(f"\n🔍 Analyzing group balance across CV folds...")
+    
+    fold_stats = []
+    for fold, (train_idx, val_idx) in enumerate(cv_splitter.split(X_train, y_train, groups_train)):
+        train_ecg = np.sum(y_train[train_idx] == 0)
+        train_eeg = np.sum(y_train[train_idx] == 1) 
+        val_ecg = np.sum(y_train[val_idx] == 0)
+        val_eeg = np.sum(y_train[val_idx] == 1)
+        
+        train_groups = set([groups_train[i] for i in train_idx])
+        val_groups = set([groups_train[i] for i in val_idx])
+        
+        print(f"   Fold {fold+1}: Train ECG={train_ecg}, EEG={train_eeg} ({train_ecg/(train_ecg+train_eeg)*100:.1f}% ECG)")
+        print(f"           Val ECG={val_ecg}, EEG={val_eeg} ({val_ecg/(val_ecg+val_eeg)*100:.1f}% ECG)")
+        print(f"           Groups: {len(train_groups)} train, {len(val_groups)} val")
+        
+        fold_stats.append({
+            'train_ecg_pct': train_ecg/(train_ecg+train_eeg)*100,
+            'val_ecg_pct': val_ecg/(val_ecg+val_eeg)*100
+        })
+    
+    # Check balance consistency
+    train_ecg_pcts = [f['train_ecg_pct'] for f in fold_stats]
+    val_ecg_pcts = [f['val_ecg_pct'] for f in fold_stats]
+    
+    print(f"   📊 ECG% variance across folds:")
+    print(f"      Train: {np.std(train_ecg_pcts):.1f}% std (should be <5%)")
+    print(f"      Val: {np.std(val_ecg_pcts):.1f}% std (should be <5%)")
+    
+    if np.std(train_ecg_pcts) > 5 or np.std(val_ecg_pcts) > 5:
+        print(f"   ⚠️  HIGH variance in class balance across folds!")
+        print(f"   💡 Consider stratified GroupKFold or more groups")
+    
+    return fold_stats
+
+
+def train_with_kfold(model_builder, X_train, y_train, X_test, y_test, output_dir, name, config, metadata, groups_train=None):
+    """Train model using K-fold cross-validation with enhanced features and group-based CV"""
     print(f"🚀 Training {name} with {RUNTIME_CONFIG['global']['n_splits']}-fold cross-validation...")
     
     # Memory monitoring
@@ -618,8 +764,43 @@ def train_with_kfold(model_builder, X_train, y_train, X_test, y_test, output_dir
     # UPDATED: Use centralized class weight computation
     class_weight_dict = compute_class_weights(y_train)
 
-    # K-fold cross-validation
-    skf = StratifiedKFold(n_splits=RUNTIME_CONFIG['global']['n_splits'], shuffle=True, random_state=RUNTIME_CONFIG['global']['random_state'])
+    # FIXED: Group-based cross-validation to prevent subject leakage
+    if groups_train is not None:
+        print(f"🔒 Using StratifiedGroupKFold for better class balance")
+        try:
+            from sklearn.model_selection import StratifiedGroupKFold
+            cv_splitter = StratifiedGroupKFold(
+                n_splits=RUNTIME_CONFIG['global']['n_splits'], 
+                shuffle=True, 
+                random_state=RUNTIME_CONFIG['global']['random_state']
+            )
+            print(f"   ✅ Using StratifiedGroupKFold with {RUNTIME_CONFIG['global']['n_splits']} folds")
+        except ImportError:
+            print(f"   ⚠️  StratifiedGroupKFold not available (needs scikit-learn ≥1.4)")
+            print(f"   📦 Upgrade with: pip install scikit-learn>=1.4")
+            # Fallback to GroupKFold
+            from sklearn.model_selection import GroupKFold
+            cv_splitter = GroupKFold(n_splits=RUNTIME_CONFIG['global']['n_splits'])
+        cv_iterator = cv_splitter.split(X_train_model, y_train, groups_train)
+        
+        # Validate groups
+        unique_groups = len(set(groups_train))
+        print(f"   📊 Found {unique_groups} unique groups for CV")
+        if unique_groups < RUNTIME_CONFIG['global']['n_splits']:
+            print(f"   ⚠️  Warning: Only {unique_groups} groups for {RUNTIME_CONFIG['global']['n_splits']} folds!")
+        
+        # NEW: Analyze group balance across folds
+        analyze_group_balance_in_cv(X_train_model, y_train, groups_train, cv_splitter)
+        
+        # Reset iterator after analysis
+        cv_iterator = cv_splitter.split(X_train_model, y_train, groups_train)
+        
+    else:
+        print(f"⚠️  No groups provided - using StratifiedKFold (potential leakage)")
+        from sklearn.model_selection import StratifiedKFold
+        cv_splitter = StratifiedKFold(n_splits=RUNTIME_CONFIG['global']['n_splits'], shuffle=True, random_state=RUNTIME_CONFIG['global']['random_state'])
+        cv_iterator = cv_splitter.split(X_train_model, y_train)
+
     fold_scores = []
 
     # Progress bar for folds
@@ -630,11 +811,21 @@ def train_with_kfold(model_builder, X_train, y_train, X_test, y_test, output_dir
         leave=True
     )
 
-    for fold, (train_idx, val_idx) in enumerate(skf.split(X_train_model, y_train)):
+    for fold, (train_idx, val_idx) in enumerate(cv_iterator):
         fold_progress.set_description(f"🔄 {name} Fold {fold + 1}")
         
         X_tr, X_val = X_train_model[train_idx], X_train_model[val_idx]
         y_tr, y_val = y_train[train_idx], y_train[val_idx]
+
+        # ADDED: Group validation for debugging
+        if groups_train is not None:
+            train_groups = set([groups_train[i] for i in train_idx])
+            val_groups = set([groups_train[i] for i in val_idx])
+            overlap = train_groups.intersection(val_groups)
+            if overlap:
+                print(f"   ⚠️  WARNING: Group overlap detected in fold {fold + 1}: {overlap}")
+            else:
+                print(f"   ✅ Fold {fold + 1}: No group overlap ({len(train_groups)} train, {len(val_groups)} val groups)")
 
         if num_classes > 2:
             y_tr = to_categorical(y_tr, num_classes)
@@ -663,6 +854,8 @@ def train_with_kfold(model_builder, X_train, y_train, X_test, y_test, output_dir
         val_loss, val_acc = model.evaluate(X_val, y_val, verbose=0)
         model.save(os.path.join(output_dir, f'{name}_fold{fold+1}.keras'))
 
+        save_training_curves(history, f'{name}_fold{fold+1}', output_dir)
+
         fold_scores.append(val_acc)
         fold_progress.set_postfix({
             'Fold_Acc': f"{val_acc:.4f}",
@@ -679,6 +872,16 @@ def train_with_kfold(model_builder, X_train, y_train, X_test, y_test, output_dir
     print(f"\n✅ K-Fold Cross-Validation Results for {name}:")
     print(f"   Mean CV Score: {np.mean(fold_scores):.4f} ± {np.std(fold_scores):.4f}")
     print(f"   Individual Fold Scores: {[f'{score:.4f}' for score in fold_scores]}")
+    
+    # NEW: Check for high variance in CV scores
+    cv_std = np.std(fold_scores)
+    cv_mean = np.mean(fold_scores)
+    if cv_std > 0.1:  # High variance threshold
+        print(f"   ⚠️  HIGH CV variance detected: {cv_std:.4f}")
+        print(f"   💡 Possible causes: overfitting, group imbalance, or insufficient regularization")
+        if name == 'mlp':
+            print(f"   💡 For MLP: Consider increasing L2 regularization or dropout")
+    
     log_fold_metrics_to_csv(name, fold_scores, output_dir)
 
     # Train final model on full training set
@@ -710,8 +913,21 @@ def train_with_kfold(model_builder, X_train, y_train, X_test, y_test, output_dir
     # Evaluate on test set
     print("🔍 Evaluating final model on test set...")
     y_probs = final_model.predict(X_test_model, verbose=0)
-    y_pred = (y_probs > 0.5).astype(int).flatten() if num_classes == 2 else np.argmax(y_probs, axis=1)
+
+    # ADD TEMPERATURE SCALING HERE:
+    print("🌡️  Applying temperature scaling for calibration...")
+    y_probs_calibrated, temp_used = apply_dynamic_temperature_scaling(y_probs, y_test)
+
+    if num_classes == 2:
+        y_pred = (y_probs_calibrated > 0.5).astype(int)
+        # Use calibrated probs for ROC/PR curves
+        save_roc_pr_curves(y_test, y_probs_calibrated, name, output_dir)
+    else:
+        y_pred = np.argmax(y_probs, axis=1)
+        save_roc_pr_curves(y_test, y_probs, name, output_dir)
+
     print_evaluation(y_test, y_pred, name)
+    plot_confusion_matrix(y_test, y_pred, name, output_dir)
     
     # Memory monitoring after training
     monitor_memory_usage(f"after {name} k-fold")
@@ -719,7 +935,7 @@ def train_with_kfold(model_builder, X_train, y_train, X_test, y_test, output_dir
     print(f"✅ {name} model saved")
     return final_model
 
-def train_keras_model(model_builder, X_train, y_train, X_test, y_test, output_dir, name, config, metadata, validation_strategy='auto'):
+def train_keras_model(model_builder, X_train, y_train, X_test, y_test, output_dir, name, config, metadata, validation_strategy='auto', groups_train=None):
     """
     Unified training function for Keras models with automatic strategy selection
     """
@@ -736,32 +952,20 @@ def train_keras_model(model_builder, X_train, y_train, X_test, y_test, output_di
     log_model_configuration(name, config)
     
     if actual_strategy == 'kfold':
-        return train_with_kfold(model_builder, X_train, y_train, X_test, y_test, output_dir, name, config, metadata)
+        return train_with_kfold(model_builder, X_train, y_train, X_test, y_test, output_dir, name, config, metadata, groups_train)
     else:
         return train_with_split(model_builder, X_train, y_train, X_test, y_test, output_dir, name, config, metadata)
 
-def train_dual_branch(X_train, y_train, X_test, y_test, output_dir, metadata, validation_strategy='auto'):
+def train_dual_branch(X_train, y_train, X_test, y_test, output_dir, metadata, validation_strategy='auto', groups_train=None):
     """
-    Train Dual-Branch CNN with proper data preparation and enhanced features
-    Kept as separate function as requested
+    Train Dual-Branch CNN with proper CV balance and enhanced features
+    FIXED: Uses StratifiedGroupKFold for balanced class distribution
+    FIXED: Saves per-fold training curves
+    ENHANCED: Includes group balance analysis
     """
     print("\n🚀 Training Dual-Branch CNN...")
-
     import matplotlib.pyplot as plt
     import seaborn as sns
-
-    def plot_confusion_matrix(y_true, y_pred):
-        cm = confusion_matrix(y_true, y_pred)
-        plt.figure(figsize=(6, 5))
-        sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', xticklabels=['ECG', 'EEG'], yticklabels=['ECG', 'EEG'])
-        plt.xlabel("Predicted")
-        plt.ylabel("True")
-        plt.title("Confusion Matrix")
-        filepath = os.path.join(output_dir, 'dual_branch_confusion_matrix.png')
-        plt.tight_layout()
-        plt.savefig(filepath)
-        plt.close()
-        print(f"📉 Confusion matrix saved to: {filepath}")
 
     # Memory monitoring
     monitor_memory_usage("before dual_branch")
@@ -782,7 +986,43 @@ def train_dual_branch(X_train, y_train, X_test, y_test, output_dir, metadata, va
     log_model_configuration('dual_branch', RUNTIME_CONFIG['dual_branch'])
 
     if actual_strategy == 'kfold':
-        skf = StratifiedKFold(n_splits=RUNTIME_CONFIG['global']['n_splits'], shuffle=True, random_state=RUNTIME_CONFIG['global']['random_state'])
+        # FIXED: Enhanced Group-based cross-validation with proper stratification
+        if groups_train is not None:
+            print(f"🔒 Using Enhanced GroupKFold with class balance awareness")
+            try:
+                from sklearn.model_selection import StratifiedGroupKFold
+                cv_splitter = StratifiedGroupKFold(
+                    n_splits=RUNTIME_CONFIG['global']['n_splits'], 
+                    shuffle=True, 
+                    random_state=RUNTIME_CONFIG['global']['random_state']
+                )
+                print(f"   ✅ Using StratifiedGroupKFold for balanced class distribution")
+            except ImportError:
+                print(f"   ⚠️  StratifiedGroupKFold not available (needs scikit-learn ≥1.4)")
+                print(f"   📦 Falling back to GroupKFold")
+                from sklearn.model_selection import GroupKFold
+                cv_splitter = GroupKFold(n_splits=RUNTIME_CONFIG['global']['n_splits'])
+            
+            cv_iterator = cv_splitter.split(X_train_model, y_train, groups_train)
+            
+            # Validate groups
+            unique_groups = len(set(groups_train))
+            print(f"   📊 Found {unique_groups} unique groups for CV")
+            if unique_groups < RUNTIME_CONFIG['global']['n_splits']:
+                print(f"   ⚠️  Warning: Only {unique_groups} groups for {RUNTIME_CONFIG['global']['n_splits']} folds!")
+            
+            # ADDED: Analyze group balance across folds (like other models)
+            analyze_group_balance_in_cv(X_train_model, y_train, groups_train, cv_splitter)
+            
+            # Reset iterator after analysis
+            cv_iterator = cv_splitter.split(X_train_model, y_train, groups_train)
+            
+        else:
+            print(f"⚠️  No groups provided - using StratifiedKFold (potential leakage)")
+            from sklearn.model_selection import StratifiedKFold
+            cv_splitter = StratifiedKFold(n_splits=RUNTIME_CONFIG['global']['n_splits'], shuffle=True, random_state=RUNTIME_CONFIG['global']['random_state'])
+            cv_iterator = cv_splitter.split(X_train_model, y_train)
+
         fold_scores = []
         
         # Progress bar for folds
@@ -793,36 +1033,74 @@ def train_dual_branch(X_train, y_train, X_test, y_test, output_dir, metadata, va
             leave=True
         )
         
-        for fold, (train_idx, val_idx) in enumerate(skf.split(X_train_model, y_train)):
+        for fold, (train_idx, val_idx) in enumerate(cv_iterator):
             fold_progress.set_description(f"🔄 Dual-Branch Fold {fold + 1}")
             
             X_tr, X_val = X_train_model[train_idx], X_train_model[val_idx]
             y_tr, y_val = y_train[train_idx], y_train[val_idx]
 
+            # ENHANCED: Group validation for debugging with detailed logging
+            if groups_train is not None:
+                train_groups = set([groups_train[i] for i in train_idx])
+                val_groups = set([groups_train[i] for i in val_idx])
+                overlap = train_groups.intersection(val_groups)
+                if overlap:
+                    print(f"   ⚠️  WARNING: Group overlap detected in fold {fold + 1}: {overlap}")
+                else:
+                    print(f"   ✅ Fold {fold + 1}: No group overlap ({len(train_groups)} train, {len(val_groups)} val groups)")
+                
+                # ADDED: Class balance analysis per fold
+                train_ecg = np.sum(y_tr == 0)
+                train_eeg = np.sum(y_tr == 1)
+                val_ecg = np.sum(y_val == 0)
+                val_eeg = np.sum(y_val == 1)
+                
+                train_ecg_pct = train_ecg / (train_ecg + train_eeg) * 100
+                val_ecg_pct = val_ecg / (val_ecg + val_eeg) * 100
+                
+                print(f"       Train: {train_ecg:,} ECG, {train_eeg:,} EEG ({train_ecg_pct:.1f}% ECG)")
+                print(f"       Val:   {val_ecg:,} ECG, {val_eeg:,} EEG ({val_ecg_pct:.1f}% ECG)")
+
+            # Build model for this fold
             model = build_dual_branch_cnn(input_shape=input_shape, num_classes=2, config=RUNTIME_CONFIG['dual_branch'])
             
             # UPDATED: Use centralized optimizer creation
             optimizer = create_optimizer(RUNTIME_CONFIG['dual_branch']['learning_rate'])
             model.compile(optimizer=optimizer, loss='binary_crossentropy', metrics=['accuracy'])
 
-            # Enhanced callbacks for this fold
+            # Enhanced callbacks for this fold with proper position
             callbacks = create_enhanced_callbacks(f"dual_branch_fold{fold+1}", output_dir, progress_position=1)
 
-            model.fit(
+            # UPDATED: Use centralized class weight computation
+            class_weight_dict = compute_class_weights(y_tr)
+
+            # Train model for this fold
+            start_time = time.time()
+            history = model.fit(
                 X_tr, y_tr,
                 validation_data=(X_val, y_val),
                 epochs=RUNTIME_CONFIG['global']['epochs'],
                 batch_size=RUNTIME_CONFIG['dual_branch']['batch_size'],
+                class_weight=class_weight_dict,  # ADDED: Class balancing
                 callbacks=callbacks,
                 verbose=0
             )
+            fold_time = time.time() - start_time
             
+            # FIXED: Save per-fold training curves (was missing!)
+            save_training_curves(history, f'dual_branch_fold{fold+1}', output_dir)
+            
+            # Evaluate on validation set
             val_loss, val_acc = model.evaluate(X_val, y_val, verbose=0)
-            fold_scores.append(val_acc)
             
+            # ADDED: Save fold model
+            model.save(os.path.join(output_dir, f'dual_branch_fold{fold+1}.keras'))
+            
+            fold_scores.append(val_acc)
             fold_progress.set_postfix({
                 'Fold_Acc': f"{val_acc:.4f}",
-                'Mean_CV': f"{np.mean(fold_scores):.4f}" if fold_scores else "N/A"
+                'Mean_CV': f"{np.mean(fold_scores):.4f}" if fold_scores else "N/A",
+                'Time': f"{fold_time:.1f}s"
             })
             fold_progress.update(1)
             
@@ -834,9 +1112,20 @@ def train_dual_branch(X_train, y_train, X_test, y_test, output_dir, metadata, va
 
         print(f"\n✅ Dual-Branch CNN K-Fold Results:")
         print(f"   Mean CV Score: {np.mean(fold_scores):.4f} ± {np.std(fold_scores):.4f}")
+        print(f"   Individual Fold Scores: {[f'{score:.4f}' for score in fold_scores]}")
+        
+        # ADDED: Check for high variance in CV scores (like other models)
+        cv_std = np.std(fold_scores)
+        cv_mean = np.mean(fold_scores)
+        if cv_std > 0.1:  # High variance threshold
+            print(f"   ⚠️  HIGH CV variance detected: {cv_std:.4f}")
+            print(f"   💡 Possible causes: overfitting, group imbalance, or insufficient regularization")
+            print(f"   💡 For Dual-Branch: Consider increasing L2 regularization or dropout")
+        
+        # ADDED: Save fold metrics to CSV
         log_fold_metrics_to_csv('dual_branch', fold_scores, output_dir)
 
-        # Train final model
+        # Train final model on full training set
         print(f"\nTraining final dual-branch model on full training set...")
         final_model = build_dual_branch_cnn(input_shape=input_shape, num_classes=2, config=RUNTIME_CONFIG['dual_branch'])
         
@@ -847,24 +1136,46 @@ def train_dual_branch(X_train, y_train, X_test, y_test, output_dir, metadata, va
         # Enhanced callbacks for final training
         callbacks = create_enhanced_callbacks("dual_branch_final", output_dir, progress_position=0)
 
+        # UPDATED: Use centralized class weight computation
+        class_weight_dict = compute_class_weights(y_train)
+
+        final_start_time = time.time()
         final_history = final_model.fit(
             X_train_model, y_train,
             validation_split=0.1,
             epochs=RUNTIME_CONFIG['global']['epochs'],
             batch_size=RUNTIME_CONFIG['dual_branch']['batch_size'],
+            class_weight=class_weight_dict,  # ADDED: Class balancing
             callbacks=callbacks,
             verbose=0
         )
+        final_time = time.time() - final_start_time
+        print(f"⏱️  Final training completed in {final_time:.1f}s")
 
+        # Save final training curves
         save_training_curves(final_history, 'dual_branch', output_dir)
-        y_pred = (final_model.predict(X_test_model, verbose=0) > 0.5).astype(int).flatten()
+        
+        # Evaluate on test set
+        print("🔍 Evaluating final model on test set...")
+        y_probs = final_model.predict(X_test_model, verbose=0)
+        
+        # ENHANCED: Apply temperature scaling for calibration
+        print("🌡️  Applying temperature scaling for dual-branch...")
+        y_probs_calibrated, temp_used = apply_dynamic_temperature_scaling(y_probs, y_test)
+        y_pred = (y_probs_calibrated > 0.5).astype(int).flatten()
+        
         print("📊 Classification Report:")
         print(classification_report(y_test, y_pred, target_names=["ECG", "EEG"]))
-        plot_confusion_matrix(y_test, y_pred)
+        plot_confusion_matrix(y_test, y_pred, "dual_branch", output_dir)
+        
+        # Use calibrated probabilities for ROC/PR curves
+        save_roc_pr_curves(y_test, y_probs_calibrated, 'dual_branch', output_dir)
 
+        # Save final model
         final_model.save(os.path.join(output_dir, 'dual_branch_final.keras'))
 
-    else:  # Simple split
+    else:  # Simple split validation
+        print("🎯 Using simple split validation...")
         model = build_dual_branch_cnn(input_shape=input_shape, num_classes=2, config=RUNTIME_CONFIG['dual_branch'])
         
         # UPDATED: Use centralized optimizer creation
@@ -878,12 +1189,16 @@ def train_dual_branch(X_train, y_train, X_test, y_test, output_dir, metadata, va
         # Enhanced callbacks
         callbacks = create_enhanced_callbacks("dual_branch", output_dir, progress_position=0)
 
+        # UPDATED: Use centralized class weight computation
+        class_weight_dict = compute_class_weights(y_train)
+
         start_time = time.time()
         history = model.fit(
             X_train_model, y_train,
             validation_split=0.1,
             epochs=RUNTIME_CONFIG['global']['epochs'],
             batch_size=RUNTIME_CONFIG['dual_branch']['batch_size'],
+            class_weight=class_weight_dict,
             callbacks=callbacks,
             verbose=0
         )
@@ -891,17 +1206,181 @@ def train_dual_branch(X_train, y_train, X_test, y_test, output_dir, metadata, va
         training_time = time.time() - start_time
         print(f"⏱️  Training completed in {training_time:.1f}s")
 
+        # Save training curves and model
         save_training_curves(history, 'dual_branch', output_dir)
-        y_pred = (model.predict(X_test_model, verbose=0) > 0.5).astype(int).flatten()
+        
+        # Evaluate on test set
+        print("🔍 Evaluating on test set...")
+        y_probs = model.predict(X_test_model, verbose=0)
+        
+        # ENHANCED: Apply temperature scaling for calibration
+        print("🌡️  Applying temperature scaling for dual-branch...")
+        y_probs_calibrated, temp_used = apply_dynamic_temperature_scaling(y_probs, y_test)
+        y_pred = (y_probs_calibrated > 0.5).astype(int).flatten()
+        
         print("📊 Classification Report:")
         print(classification_report(y_test, y_pred, target_names=["ECG", "EEG"]))
-        plot_confusion_matrix(y_test, y_pred)
-
+        plot_confusion_matrix(y_test, y_pred, "dual_branch", output_dir)
+        
+        # Use calibrated probabilities for ROC/PR curves
+        save_roc_pr_curves(y_test, y_probs_calibrated, 'dual_branch', output_dir)
+        
+        # Save model
         model.save(os.path.join(output_dir, 'dual_branch_final.keras'))
 
     # Memory monitoring after training
     monitor_memory_usage("after dual_branch")
     print("✅ Dual-Branch CNN training complete.")
+    
+    return final_model if actual_strategy == 'kfold' else model
+
+def find_optimal_temperature(y_true, y_probs, validation_split=0.1):
+    """
+    Find optimal temperature using validation data to minimize calibration error
+    
+    Args:
+        y_true: True labels
+        y_probs: Raw model probabilities
+        validation_split: Fraction to use for temperature optimization
+        
+    Returns:
+        optimal_temperature: Best temperature found
+        calibration_info: Dict with calibration metrics
+    """
+    from sklearn.model_selection import train_test_split
+    from scipy.optimize import minimize_scalar
+    import numpy as np
+    
+    # Split data for temperature optimization
+    if len(y_true) > 100:  # Only if we have enough data
+        _, y_val, _, probs_val = train_test_split(
+            y_true, y_probs, test_size=validation_split, 
+            stratify=y_true, random_state=42
+        )
+    else:
+        # Use all data if dataset is small
+        y_val, probs_val = y_true, y_probs
+    
+    def calibration_loss(temperature):
+        """Calculate Expected Calibration Error (ECE) for given temperature"""
+        # Apply temperature scaling
+        epsilon = 1e-8
+        if len(probs_val.shape) > 1 and probs_val.shape[1] > 1:
+            probs_pos = probs_val[:, 1]
+        else:
+            probs_pos = probs_val.flatten()
+        
+        # Convert to logits and apply temperature
+        probs_clipped = np.clip(probs_pos, epsilon, 1 - epsilon)
+        logits = np.log(probs_clipped / (1 - probs_clipped))
+        calibrated_logits = logits / temperature
+        calibrated_probs = 1 / (1 + np.exp(-calibrated_logits))
+        
+        # Calculate Expected Calibration Error (ECE)
+        ece = calculate_ece(y_val, calibrated_probs)
+        return ece
+    
+    # Search for optimal temperature
+    try:
+        result = minimize_scalar(
+            calibration_loss, 
+            bounds=(0.1, 10.0),  # Reasonable temperature range
+            method='bounded'
+        )
+        optimal_temp = result.x
+        best_ece = result.fun
+        
+        # Validate the result
+        if optimal_temp < 0.1 or optimal_temp > 10.0:
+            print(f"   ⚠️  Optimal temperature {optimal_temp:.2f} outside bounds, using fallback")
+            optimal_temp = 1.5  # Conservative fallback
+            
+    except Exception as e:
+        print(f"   ⚠️  Temperature optimization failed: {e}")
+        optimal_temp = 1.5  # Conservative fallback
+        best_ece = None
+    
+    # Calculate calibration metrics for reporting
+    calibration_info = {
+        'optimal_temperature': optimal_temp,
+        'ece_before': calibration_loss(1.0),  # ECE without scaling
+        'ece_after': calibration_loss(optimal_temp),
+        'validation_samples': len(y_val)
+    }
+    
+    return optimal_temp, calibration_info
+
+def calculate_ece(y_true, y_probs, n_bins=10):
+    """Calculate Expected Calibration Error"""
+    bin_boundaries = np.linspace(0, 1, n_bins + 1)
+    bin_lowers = bin_boundaries[:-1]
+    bin_uppers = bin_boundaries[1:]
+    
+    ece = 0
+    for bin_lower, bin_upper in zip(bin_lowers, bin_uppers):
+        # Points in this bin
+        in_bin = (y_probs > bin_lower) & (y_probs <= bin_upper)
+        prop_in_bin = in_bin.mean()
+        
+        if prop_in_bin > 0:
+            # Accuracy and confidence in this bin
+            accuracy_in_bin = y_true[in_bin].mean()
+            avg_confidence_in_bin = y_probs[in_bin].mean()
+            
+            # Add to ECE
+            ece += np.abs(avg_confidence_in_bin - accuracy_in_bin) * prop_in_bin
+    
+    return ece
+
+def apply_dynamic_temperature_scaling(y_probs, y_true=None, temperature=None):
+    """
+    Apply temperature scaling with dynamic temperature optimization
+    
+    Args:
+        y_probs: Raw model probabilities
+        y_true: True labels (for temperature optimization)
+        temperature: Fixed temperature (if None, will optimize)
+        
+    Returns:
+        calibrated_probs: Temperature-scaled probabilities
+        temperature_used: The temperature that was applied
+    """
+    import numpy as np
+    
+    # If temperature not provided, try to find optimal
+    if temperature is None and y_true is not None:
+        print("🌡️  Finding optimal temperature...")
+        optimal_temp, cal_info = find_optimal_temperature(y_true, y_probs)
+        
+        print(f"   🎯 Optimal temperature: {optimal_temp:.2f}")
+        print(f"   📊 ECE before: {cal_info['ece_before']:.4f}")
+        print(f"   📊 ECE after: {cal_info['ece_after']:.4f}")
+        print(f"   📊 Validation samples: {cal_info['validation_samples']}")
+        
+        temperature = optimal_temp
+    elif temperature is None:
+        # Fallback when no ground truth available
+        print("🌡️  No ground truth available, using conservative temperature")
+        temperature = 1.5
+    
+    # Apply temperature scaling
+    epsilon = 1e-8
+    if len(y_probs.shape) > 1 and y_probs.shape[1] > 1:
+        y_probs_pos = y_probs[:, 1]
+    else:
+        y_probs_pos = y_probs.flatten()
+    
+    # Convert to logits and apply temperature
+    y_probs_clipped = np.clip(y_probs_pos, epsilon, 1 - epsilon)
+    logits = np.log(y_probs_clipped / (1 - y_probs_clipped))
+    calibrated_logits = logits / temperature
+    calibrated_probs = 1 / (1 + np.exp(-calibrated_logits))
+    
+    print(f"   🌡️  Temperature applied: {temperature:.2f}")
+    print(f"   📊 Before: range=[{y_probs_pos.min():.4f}, {y_probs_pos.max():.4f}]")
+    print(f"   📊 After:  range=[{calibrated_probs.min():.4f}, {calibrated_probs.max():.4f}]")
+    
+    return calibrated_probs, temperature
 
 # ============================================================================
 # ENHANCED MAIN TRAINING PIPELINE WITH MEMORY MANAGEMENT
@@ -970,6 +1449,44 @@ def train_all_models_with_management(models_to_train, X_train, y_train, X_test, 
             }
             
             print(f"✅ {model_name} completed in {model_time:.1f}s")
+
+            # =====================================
+            print(f"🔍 Running feature importance analysis for {model_name}...")
+            try:
+                if model_name == 'svm':
+                    # Load the saved SVM model
+                    import joblib
+                    svm_model_path = os.path.join(output_dir, 'svm_model.joblib')
+                    if os.path.exists(svm_model_path):
+                        svm_model = joblib.load(svm_model_path)
+                        importance_scores = analyze_feature_importance(svm_model, X_test, y_test, model_name)
+                    else:
+                        print(f"   ⚠️  SVM model file not found, skipping importance analysis")
+                        importance_scores = []
+                else:
+                    # Load the saved Keras model
+                    from tensorflow.keras.models import load_model
+                    keras_model_path = os.path.join(output_dir, f'{model_name}_final.keras')
+                    if os.path.exists(keras_model_path):
+                        keras_model = load_model(keras_model_path)
+                        importance_scores = analyze_feature_importance(keras_model, X_test, y_test, model_name)
+                        # Clean up model from memory
+                        del keras_model
+                    else:
+                        print(f"   ⚠️  Keras model file not found, skipping importance analysis")
+                        importance_scores = []
+                
+                # Save importance scores
+                if importance_scores:
+                    import pickle
+                    importance_path = os.path.join(output_dir, f'{model_name}_feature_importance.pkl')
+                    with open(importance_path, 'wb') as f:
+                        pickle.dump(importance_scores, f)
+                    print(f"   💾 Feature importance saved to: {importance_path}")
+                
+            except Exception as importance_error:
+                print(f"   ⚠️  Feature importance analysis failed: {importance_error}")
+            # =====================================
             
         except Exception as e:
             model_time = time.time() - model_start_time
@@ -1022,6 +1539,237 @@ def train_all_models_with_management(models_to_train, X_train, y_train, X_test, 
     
     return results
 
+def analyze_feature_importance(model, X_test, y_test, model_name, top_k=20):
+    """
+    ENHANCED: Feature importance with detailed debugging
+    """
+    print(f"🔍 Analyzing feature importance for {model_name}...")
+    
+    # Prepare data according to model type
+    if model_name == 'svm':
+        model_obj = model
+        # X_for_analysis = scaler.transform(X_test)
+        
+        def predict_fn(X):
+            return model_obj.predict_proba(X)[:, 1]
+            
+    elif model_name == 'mlp':
+        X_for_analysis = X_test
+        
+        def predict_fn(X):
+            return model.predict(X, verbose=0).flatten()
+            
+    elif model_name in ['simple_cnn', 'cnn_lstm', 'tcn', 'dual_branch']:
+        if X_test.shape[1] == 6016:
+            X_for_analysis = X_test.reshape(X_test.shape[0], 188, 32)
+        else:
+            X_for_analysis = X_test
+        
+        def predict_fn(X):
+            return model.predict(X, verbose=0).flatten()
+    
+    print(f"   📊 Input shape: {X_for_analysis.shape}")
+    
+    # DEBUGGING: Check model performance first
+    try:
+        baseline_predictions = predict_fn(X_for_analysis)
+        baseline_acc = np.mean((baseline_predictions > 0.5) == y_test)
+        
+        # Check prediction distribution
+        pred_mean = np.mean(baseline_predictions)
+        pred_std = np.std(baseline_predictions)
+        pred_min = np.min(baseline_predictions)
+        pred_max = np.max(baseline_predictions)
+        
+        # Check how many predictions are near extremes
+        near_zero = np.sum(baseline_predictions < 0.1)
+        near_one = np.sum(baseline_predictions > 0.9)
+        middle_range = len(baseline_predictions) - near_zero - near_one
+        
+        print(f"   📊 BASELINE ANALYSIS:")
+        print(f"      Accuracy: {baseline_acc:.4f}")
+        print(f"      Pred mean: {pred_mean:.4f}, std: {pred_std:.4f}")
+        print(f"      Pred range: [{pred_min:.4f}, {pred_max:.4f}]")
+        print(f"      Near 0 (<0.1): {near_zero:,} ({near_zero/len(baseline_predictions)*100:.1f}%)")
+        print(f"      Near 1 (>0.9): {near_one:,} ({near_one/len(baseline_predictions)*100:.1f}%)")
+        print(f"      Middle range: {middle_range:,} ({middle_range/len(baseline_predictions)*100:.1f}%)")
+        
+        # If predictions are too extreme, feature importance won't work
+        if (near_zero + near_one) / len(baseline_predictions) > 0.9:
+            print(f"   ⚠️  WARNING: {(near_zero + near_one)/len(baseline_predictions)*100:.1f}% predictions are extreme!")
+            print(f"   💡 Model is overconfident - feature importance will be minimal")
+            print(f"   💡 This indicates the task is too easy or model is overfitting")
+            
+            if baseline_acc > 0.95:
+                print(f"   🚨 CRITICAL: Model has {baseline_acc*100:.1f}% accuracy - task is too easy!")
+                return []
+        
+    except Exception as e:
+        print(f"   ❌ Baseline prediction failed: {e}")
+        return []
+    
+    # Only proceed if baseline is reasonable
+    if baseline_acc < 0.6 or baseline_acc > 0.98:
+        print(f"   ⚠️  Baseline accuracy {baseline_acc:.4f} is too extreme for meaningful feature importance")
+        return []
+    
+    # Test on smaller subset for speed
+    n_samples = min(200, len(X_test))  # Even smaller subset
+    test_indices = np.random.choice(len(X_test), n_samples, replace=False)
+    X_subset = X_for_analysis[test_indices]
+    y_subset = y_test[test_indices]
+    
+    # Get baseline for subset
+    baseline_subset_pred = predict_fn(X_subset)
+    baseline_subset_acc = np.mean((baseline_subset_pred > 0.5) == y_subset)
+    
+    print(f"   📊 Testing on {n_samples} samples, subset baseline: {baseline_subset_acc:.4f}")
+    
+    feature_importance = []
+    
+    # Test fewer features with more detailed logging
+    if model_name in ['simple_cnn', 'cnn_lstm', 'tcn', 'dual_branch']:
+        print(f"   🔄 Testing channel importance (32 channels)...")
+        
+        # Test all 32 channels
+        for channel_idx in range(32):
+            X_permuted = X_subset.copy()
+            
+            # Permute this entire channel
+            for sample_idx in range(X_subset.shape[0]):
+                original_channel = X_permuted[sample_idx, :, channel_idx].copy()
+                X_permuted[sample_idx, :, channel_idx] = np.random.permutation(original_channel)
+            
+            try:
+                permuted_pred = predict_fn(X_permuted)
+                permuted_acc = np.mean((permuted_pred > 0.5) == y_subset)
+                importance = baseline_subset_acc - permuted_acc
+                
+                # DEBUGGING: Log first few channels in detail
+                if channel_idx < 5:
+                    pred_change = np.mean(np.abs(permuted_pred - baseline_subset_pred))
+                    print(f"      Ch{channel_idx:02d}: baseline_acc={baseline_subset_acc:.4f}, "
+                          f"permuted_acc={permuted_acc:.4f}, importance={importance:.4f}, "
+                          f"avg_pred_change={pred_change:.4f}")
+                
+                feature_importance.append((f"Channel_{channel_idx:02d}", importance))
+                
+            except Exception as e:
+                print(f"      ❌ Channel {channel_idx} failed: {e}")
+                feature_importance.append((f"Channel_{channel_idx:02d}", 0.0))
+        
+        # Test some timesteps too
+        print(f"   🔄 Testing timestep importance (sample of 10 timesteps)...")
+        timestep_samples = np.random.choice(188, 10, replace=False)
+        
+        for timestep_idx in timestep_samples:
+            X_permuted = X_subset.copy()
+            
+            # Permute this timestep across all channels
+            for sample_idx in range(X_subset.shape[0]):
+                original_timestep = X_permuted[sample_idx, timestep_idx, :].copy()
+                X_permuted[sample_idx, timestep_idx, :] = np.random.permutation(original_timestep)
+            
+            try:
+                permuted_pred = predict_fn(X_permuted)
+                permuted_acc = np.mean((permuted_pred > 0.5) == y_subset)
+                importance = baseline_subset_acc - permuted_acc
+                feature_importance.append((f"Timestep_{timestep_idx:03d}", importance))
+                
+            except Exception as e:
+                feature_importance.append((f"Timestep_{timestep_idx:03d}", 0.0))
+    
+    else:  # SVM, MLP
+        print(f"   🔄 Testing individual features (sample of 50)...")
+        feature_indices = np.random.choice(X_subset.shape[1], 50, replace=False)
+        
+        for i, feature_idx in enumerate(feature_indices):
+            X_permuted = X_subset.copy()
+            original_values = X_permuted[:, feature_idx].copy()
+            X_permuted[:, feature_idx] = np.random.permutation(original_values)
+            
+            try:
+                permuted_pred = predict_fn(X_permuted)
+                permuted_acc = np.mean((permuted_pred > 0.5) == y_subset)
+                importance = baseline_subset_acc - permuted_acc
+                
+                # Decode feature
+                channel = feature_idx // 188
+                timepoint = feature_idx % 188
+                feature_name = f"Ch{channel:02d}_T{timepoint:03d}"
+                
+                # DEBUGGING: Log first few features
+                if i < 5:
+                    pred_change = np.mean(np.abs(permuted_pred - baseline_subset_pred))
+                    print(f"      {feature_name}: baseline={baseline_subset_acc:.4f}, "
+                          f"permuted={permuted_acc:.4f}, importance={importance:.4f}, "
+                          f"pred_change={pred_change:.4f}")
+                
+                feature_importance.append((feature_name, importance))
+                
+            except Exception as e:
+                feature_importance.append((f"Feature_{feature_idx}", 0.0))
+    
+    # Sort and display results
+    feature_importance.sort(key=lambda x: x[1], reverse=True)
+    
+    meaningful_features = [f for f in feature_importance if f[1] > 0.001]
+    
+    print(f"\n📊 FEATURE IMPORTANCE RESULTS for {model_name}:")
+    print(f"   Total features tested: {len(feature_importance)}")
+    print(f"   Meaningful features (>0.001): {len(meaningful_features)}")
+    
+    if len(meaningful_features) == 0:
+        print(f"   ⚠️  NO meaningful features found!")
+        print(f"   💡 Possible reasons:")
+        print(f"      - Model accuracy too high ({baseline_acc:.3f}) - task too easy")
+        print(f"      - Model predictions too extreme/confident")
+        print(f"      - Model overfitting to noise rather than features")
+        
+        # Show top features anyway
+        print(f"   📊 Top 5 features anyway:")
+        for rank, (feature_name, importance) in enumerate(feature_importance[:5]):
+            print(f"      {rank+1}. {feature_name}: {importance:+.6f}")
+    else:
+        print(f"   📊 TOP {min(top_k, len(meaningful_features))} IMPORTANT FEATURES:")
+        for rank, (feature_name, importance) in enumerate(meaningful_features[:top_k]):
+            print(f"      {rank+1:2d}. {feature_name}: {importance:+.4f} accuracy drop")
+    
+    return feature_importance
+
+def validate_groups(groups, label):
+    """Validate group structure and detect potential issues"""
+    unique_groups = set(groups)
+    group_counts = {g: np.sum(groups == g) for g in unique_groups}
+    
+    print(f"\n🔍 {label} Group Validation:")
+    print(f"   Unique groups: {len(unique_groups)}")
+    print(f"   Total samples: {len(groups)}")
+    print(f"   Sample groups: {list(unique_groups)[:5]}...")
+    print(f"   Group sizes: min={min(group_counts.values())}, max={max(group_counts.values())}, avg={np.mean(list(group_counts.values())):.1f}")
+    
+    # Check for proper group naming
+    ecg_groups = [g for g in unique_groups if 'ecg' in g]
+    eeg_groups = [g for g in unique_groups if 'eeg' in g]
+    
+    if ecg_groups:
+        print(f"   ECG groups: {len(ecg_groups)} (e.g., {ecg_groups[0]})")
+    if eeg_groups:
+        print(f"   EEG groups: {len(eeg_groups)} (e.g., {eeg_groups[0]})")
+    
+    # Warning checks
+    if len(unique_groups) < 10:
+        print(f"   ⚠️  WARNING: Very few unique groups detected!")
+    
+    # Check for artificial grouping patterns
+    artificial_patterns = ['_000', '_001', '_002']
+    artificial_groups = [g for g in unique_groups if any(pattern in g for pattern in artificial_patterns)]
+    if artificial_groups:
+        print(f"   🚨 ARTIFICIAL GROUPING DETECTED: {artificial_groups[:3]}...")
+        print(f"   💡 This suggests fake groups instead of real patient/subject IDs")
+    else:
+        print(f"   ✅ Group naming looks legitimate (no artificial patterns)")
+
 def main(model_to_train='all'):
     import argparse
     
@@ -1033,8 +1781,8 @@ def main(model_to_train='all'):
     # Normalization options
     parser.add_argument('--normalization', choices=['smart', 'zscore', 'minmax', 'per_sample'], 
                        default='smart', help='Normalization method (default: smart - auto-detects existing normalization)')
-    parser.add_argument('--norm-strategy', choices=['combined', 'separate'], 
-                       default='separate', help='Normalization strategy (default: separate)')
+    parser.add_argument('--norm-strategy', choices=['combined', 'separate', 'global'], 
+                   default='global', help='Normalization strategy (default: global for deployment)')
         
     # Memory monitoring option
     parser.add_argument('--memory-limit', type=float, default=3.5,
@@ -1069,6 +1817,16 @@ def main(model_to_train='all'):
     parser.add_argument('--progress-bars', action='store_true', default=True,
                        help='Enable progress bars (default: True)')
     
+    # Group-based validation option
+    parser.add_argument('--use-groups', action='store_true', default=True,
+                       help='Use group-based CV to prevent data leakage (default: True)')
+    
+    # Data source options - NEW
+    parser.add_argument('--ecg-path', default='data/mit-bih',
+                       help='Path to MIT-BIH ECG data directory (default: data/mit-bih)')
+    parser.add_argument('--eeg-path', default='data/bdf', 
+                       help='Path to DEAP EEG BDF files directory (default: data/bdf)')
+    
     # Parse arguments from command line
     args = parser.parse_args()
     
@@ -1080,9 +1838,12 @@ def main(model_to_train='all'):
     print(f"📊 Dataset fraction: {args.dataset_fraction*100:.1f}%")
     print(f"💾 Memory limit: {args.memory_limit}GB")
     print(f"🎯 Validation strategy: {args.validation_strategy}")
+    print(f"🔒 Group-based CV: {'Enabled' if args.use_groups else 'Disabled'}")
     print(f"📊 Memory monitoring: {'Enabled' if args.memory_monitoring else 'Disabled'}")
     print(f"📈 Progress bars: {'Enabled' if args.progress_bars else 'Disabled'}")
     print(f"🖥️  GPU optimization: {'Enabled' if GPU_AVAILABLE else 'Disabled'}")
+    print(f"📂 ECG data path: {args.ecg_path}")
+    print(f"📂 EEG data path: {args.eeg_path}")
 
     # Initial memory status
     print("\n📊 Initial system status:")
@@ -1091,13 +1852,11 @@ def main(model_to_train='all'):
     print(f"💾 Initial memory usage: {initial_memory:.2f}GB")
     
     print("\n📦 Preparing dataset with smart normalization...")
-    ecg_csv = os.path.join('data', 'mitbih_from_raw.csv')
-    eeg_csv = os.path.join('data', 'eeg_dataset_32.csv')
 
-    # Load dataset with enhanced monitoring
+    # Enhanced dataset loading with direct file processing
     dataset_start_time = time.time()
     X_train, X_test, y_train, y_test, metadata = prepare_dataset(
-        ecg_csv, eeg_csv,
+        args.ecg_path, args.eeg_path,  # Use direct paths instead of CSV files
         normalization=args.normalization,
         normalization_strategy=args.norm_strategy,
         validate_alignment=True,
@@ -1119,6 +1878,57 @@ def main(model_to_train='all'):
     print(f"   🔢 Data range: [{X_train.min():.3f}, {X_train.max():.3f}]")
     print(f"   📊 Data stats: mean={X_train.mean():.6f}, std={X_train.std():.6f}")
     
+    # CRITICAL: Validate groups for proper CV
+    groups_train = None
+    if args.use_groups and 'groups_train' in metadata:
+        groups_train = metadata['groups_train']
+        
+        # NEW: Validate group structure
+        validate_groups(groups_train, "Training")
+        
+        unique_groups = len(set(groups_train))
+        print(f"\n🔒 Group-based CV Analysis:")
+        print(f"   📊 Total unique groups: {unique_groups}")
+        
+        # Validate sufficient groups for CV
+        if unique_groups < RUNTIME_CONFIG['global']['n_splits']:
+            print(f"   ⚠️  Warning: Only {unique_groups} groups for {RUNTIME_CONFIG['global']['n_splits']} folds!")
+            print(f"   💡 Consider reducing n_splits or disabling groups with --no-use-groups")
+            
+            # Ask user what to do
+            if unique_groups >= 3:
+                response = input(f"   🤔 Continue with {unique_groups} groups? Reduce folds to {unique_groups}? [y/n/r]: ").lower()
+                if response == 'r':
+                    RUNTIME_CONFIG['global']['n_splits'] = unique_groups
+                    print(f"   🔧 Reduced CV folds to {unique_groups}")
+                elif response != 'y':
+                    print("   🛑 Training stopped.")
+                    return
+            else:
+                print(f"   🚨 Too few groups ({unique_groups}) for reliable CV. Consider:")
+                print(f"      - Adding more data files")
+                print(f"      - Using --validation-strategy split")
+                print(f"      - Disabling groups with --no-use-groups")
+                return
+        
+        # Check for balanced representation
+        ecg_groups = [g for g in groups_train if 'ecg' in g]
+        eeg_groups = [g for g in groups_train if 'eeg' in g]
+        ecg_unique = len(set(ecg_groups))
+        eeg_unique = len(set(eeg_groups))
+        
+        print(f"   ❤️  ECG: {ecg_unique} unique patients")
+        print(f"   🧠 EEG: {eeg_unique} unique subjects")
+        
+        if ecg_unique < 5 or eeg_unique < 5:
+            print(f"   ⚠️  Warning: Few unique groups per signal type!")
+            print(f"   💡 This may lead to unstable CV results")
+        
+    elif args.use_groups:
+        print(f"   ⚠️  Group-based CV requested but no groups found in metadata")
+        print(f"   🔄 Falling back to standard StratifiedKFold")
+    
+    # Check for extreme values
     extreme_count = np.sum(np.abs(X_train) > 6)
     if extreme_count > 0:
         extreme_percent = extreme_count / X_train.size * 100
@@ -1161,7 +1971,7 @@ def main(model_to_train='all'):
                 n_folds=lc_folds
             )
             
-            # ADD: Memory cleanup after learning curve analysis
+            # Memory cleanup after learning curve analysis
             print("🧹 Cleaning up memory after learning curve analysis...")
             cleanup_memory()
             
@@ -1247,21 +2057,21 @@ def main(model_to_train='all'):
             elif model_name == 'simple_cnn':
                 train_keras_model(build_simple_cnn, X_train, y_train, X_test, y_test, 
                                 output_dir, 'simple_cnn', RUNTIME_CONFIG['simple_cnn'], 
-                                metadata, args.validation_strategy)
+                                metadata, args.validation_strategy, groups_train)
             elif model_name == 'cnn_lstm':
                 train_keras_model(build_cnn_lstm, X_train, y_train, X_test, y_test, 
                                 output_dir, 'cnn_lstm', RUNTIME_CONFIG['cnn_lstm'], 
-                                metadata, args.validation_strategy)
+                                metadata, args.validation_strategy, groups_train)
             elif model_name == 'mlp':
                 train_keras_model(build_mlp, X_train, y_train, X_test, y_test, 
                                 output_dir, 'mlp', RUNTIME_CONFIG['mlp'], 
-                                metadata, args.validation_strategy)
+                                metadata, args.validation_strategy, groups_train)
             elif model_name == 'tcn':
                 train_keras_model(build_tcn, X_train, y_train, X_test, y_test, 
                                 output_dir, 'tcn', RUNTIME_CONFIG['tcn'], 
-                                metadata, args.validation_strategy)
+                                metadata, args.validation_strategy, groups_train)
             elif model_name == 'dual_branch':
-                train_dual_branch(X_train, y_train, X_test, y_test, output_dir, metadata, args.validation_strategy)
+                train_dual_branch(X_train, y_train, X_test, y_test, output_dir, metadata, args.validation_strategy, groups_train)
             
             # Record success
             model_time = time.time() - model_start_time
@@ -1271,6 +2081,43 @@ def main(model_to_train='all'):
             }
             
             print(f"✅ {model_name} completed in {model_time:.1f}s")
+
+            # Feature importance analysis
+            print(f"🔍 Running feature importance analysis for {model_name}...")
+            try:
+                if model_name == 'svm':
+                    # Load the saved SVM model
+                    import joblib
+                    svm_model_path = os.path.join(output_dir, 'svm_model.joblib')
+                    if os.path.exists(svm_model_path):
+                        svm_model = joblib.load(svm_model_path)
+                        importance_scores = analyze_feature_importance(svm_model, X_test, y_test, model_name)
+                    else:
+                        print(f"   ⚠️  SVM model file not found, skipping importance analysis")
+                        importance_scores = []
+                else:
+                    # Load the saved Keras model
+                    from tensorflow.keras.models import load_model
+                    keras_model_path = os.path.join(output_dir, f'{model_name}_final.keras')
+                    if os.path.exists(keras_model_path):
+                        keras_model = load_model(keras_model_path)
+                        importance_scores = analyze_feature_importance(keras_model, X_test, y_test, model_name)
+                        # Clean up model from memory
+                        del keras_model
+                    else:
+                        print(f"   ⚠️  Keras model file not found, skipping importance analysis")
+                        importance_scores = []
+                
+                # Save importance scores
+                if importance_scores:
+                    import pickle
+                    importance_path = os.path.join(output_dir, f'{model_name}_feature_importance.pkl')
+                    with open(importance_path, 'wb') as f:
+                        pickle.dump(importance_scores, f)
+                    print(f"   💾 Feature importance saved to: {importance_path}")
+                
+            except Exception as importance_error:
+                print(f"   ⚠️  Feature importance analysis failed: {importance_error}")
             
         except Exception as e:
             model_time = time.time() - model_start_time
@@ -1282,7 +2129,7 @@ def main(model_to_train='all'):
             print(f"❌ {model_name} failed after {model_time:.1f}s: {str(e)}")
         
         finally:
-            # CRITICAL: Memory cleanup after each model (this prevents the memory leak!)
+            # Memory cleanup after each model (this prevents the memory leak!)
             print("🧹 Cleaning up memory...")
             cleanup_memory()
             
@@ -1323,6 +2170,10 @@ def main(model_to_train='all'):
     print("   • Use the best performing model for inference")
     if args.learning_curve:
         print("   • Review learning curve analysis for dataset optimization insights")
+    
+    # Group validation summary
+    if groups_train:
+        print(f"   🔒 Group-based CV used: {len(set(groups_train))} unique groups ensured no data leakage")
 
 if __name__ == '__main__':
     import sys

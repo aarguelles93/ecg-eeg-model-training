@@ -4,7 +4,7 @@ CONFIG = {
     'global': {
         'epochs': 50,
         'validation_strategy': 'kfold',  # or 'split'
-        'n_splits': 5,
+        'n_splits': 3,
         'random_state': 42
     },
     'simple_cnn': {
@@ -12,7 +12,8 @@ CONFIG = {
         'batch_size': 64,
         'dropout': 0.5,
         'filters': [32, 64],
-        'kernel_sizes': [3, 3]
+        'kernel_sizes': [3, 3],
+        'l2_regularization': 0.001
     },
     'cnn_lstm': {
         'learning_rate': 2e-4,  # INCREASED for faster convergence
@@ -27,7 +28,8 @@ CONFIG = {
         'learning_rate': 1e-4,
         'batch_size': 64,
         'dropout1': 0.5,
-        'dropout2': 0.3
+        'dropout2': 0.3,
+        'l2_reg': 0.001  # NEW: Add L2 regularization
     },
     'tcn': {
         'learning_rate': 2e-4,   # Increased from 1e-4 for better convergence

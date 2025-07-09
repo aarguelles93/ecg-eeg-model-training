@@ -4,67 +4,150 @@ import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler, MinMaxScaler
 
-def load_ecg_data(filepath, num_eeg=None):
+def load_ecg_data(filepath=None, num_eeg=None, data_path="data/mit-bih", cache_path="data/cache/ecg_raw.npz"):
     """
-    Load ECG data from CSV file
+    FIXED: Load ECG data directly from MIT-BIH files with proper patient grouping
     
     Args:
-        filepath: Path to ECG CSV file (MIT-BIH dataset)
+        filepath: Ignored (for compatibility) 
         num_eeg: Optional - if provided, balance ECG samples to match EEG count
+        data_path: Path to MIT-BIH data directory
         
     Returns:
         X: ECG feature matrix
         y: ECG labels (all zeros for binary ECG vs EEG classification)
+        groups: List of patient IDs for each beat
     """
-    try:
-        print(f"📖 Loading ECG data from: {filepath}")
+    import wfdb
+    from scipy.signal import resample
+    import os
+    import numpy as np
+
+    # Check for cached raw data
+    if os.path.exists(cache_path):
+        try:
+            print(f"🔍 Checking ECG raw data cache: {cache_path}")
+            cached = np.load(cache_path, allow_pickle=True)
+            if 'data_path' in cached and cached['data_path'] == data_path:
+                print(f"✅ Loading cached ECG data")
+                # return cached['X'], cached['y'], cached['groups']
+                return cached['X'].astype(np.float32), cached['y'], cached['groups']
+            else:
+                print(f"⚠️ Cache mismatch - regenerating ECG data")
+        except Exception as e:
+            print(f"⚠️ Cache load failed: {e}")
+    
+    # MIT-BIH records to process (from your original script)
+    RECORDS = [100, 101, 102, 103, 104, 105, 106, 107, 108, 
+               109, 111, 112, 113, 114, 115, 116, 117, 118, 
+               119, 121, 122, 123, 124, 200, 201, 202, 203, 
+               205, 207, 208, 209, 210, 212, 213, 214, 215, 
+               217, 219, 220, 221, 222, 223, 228, 230, 231, 
+               232, 233, 234]
+    
+    print(f"❤️ Loading ECG data directly from MIT-BIH files...")
+    print(f"   📂 Data path: {data_path}")
+    
+    all_beats = []
+    all_groups = []
+    beat_window = 187
+    processed_patients = 0
+    
+    for record_id in RECORDS:
+        try:
+            record_path = os.path.join(data_path, str(record_id))
+            record = wfdb.rdrecord(record_path)
+            ann = wfdb.rdann(record_path, 'atr')
+            
+            signal = record.p_signal[:, 0]  # MLII channel
+            half_window = beat_window // 2
+            patient_beats = []
+            
+            # Extract normal beats for this patient
+            for i, r_peak in enumerate(ann.sample):
+                if ann.symbol[i] != 'N':  # Only normal beats
+                    continue
+                    
+                if r_peak < half_window or r_peak + half_window >= len(signal):
+                    continue
+                    
+                beat = signal[r_peak - half_window:r_peak + half_window]
+                
+                if len(beat) != beat_window:
+                    beat = resample(beat, beat_window)
+                    
+                patient_beats.append(beat)
+            
+            if len(patient_beats) > 0:
+                # CRITICAL: Use actual record ID as patient identifier
+                patient_id = f"ecg_patient_{record_id}"
+                
+                all_beats.extend(patient_beats)
+                # CRITICAL: Same patient_id for ALL beats from this patient
+                all_groups.extend([patient_id] * len(patient_beats))
+                
+                processed_patients += 1
+                print(f"   📄 Patient {record_id}: {len(patient_beats)} beats")
+            else:
+                print(f"   ⚠️  No normal beats found in record {record_id}, skipping.")
+                
+        except Exception as e:
+            print(f"   ❌ Error processing record {record_id}: {e}")
+            continue
+    
+    if not all_beats:
+        raise ValueError("No ECG beats extracted from any record")
+    
+    X_ecg = np.array(all_beats, dtype=np.float32)
+    y_ecg = np.zeros(len(all_beats), dtype=int)  # All ECG labeled as 0
+    
+    print(f"   ✅ ECG complete: {len(all_beats)} beats from {processed_patients} patients")
+    print(f"   📊 Unique patients: {len(set(all_groups))}")
+    print(f"   📊 Feature shape: {X_ecg.shape}")
+    print(f"   📊 Data range: [{X_ecg.min():.6f}, {X_ecg.max():.6f}]")
+    
+    # Balance with EEG if requested
+    if num_eeg is not None and len(X_ecg) > num_eeg:
+        print(f"   ⚖️ Balancing ECG to match EEG size: {num_eeg:,} samples")
         
-        # Try reading with header first, then without
-        df = pd.read_csv(filepath)
-        if df.shape[1] == 1:  # Might be delimiter issue
-            df = pd.read_csv(filepath, header=None, delimiter=',')
-    except Exception as e:
-        print(f"   ⚠️ Header read failed, trying headerless: {e}")
-        df = pd.read_csv(filepath, header=None, delimiter=',')
+        # Stratified sampling to maintain patient representation
+        from collections import defaultdict
+        patient_indices = defaultdict(list)
+        for i, patient in enumerate(all_groups):
+            patient_indices[patient].append(i)
+        
+        # Calculate samples per patient
+        samples_per_patient = num_eeg // len(patient_indices)
+        remaining_samples = num_eeg % len(patient_indices)
+        
+        selected_indices = []
+        for i, (patient, indices) in enumerate(patient_indices.items()):
+            n_samples = samples_per_patient + (1 if i < remaining_samples else 0)
+            n_samples = min(n_samples, len(indices))
+            
+            import random
+            random.seed(42)
+            selected = random.sample(indices, n_samples)
+            selected_indices.extend(selected)
+        
+        X_ecg = X_ecg[selected_indices]
+        y_ecg = y_ecg[selected_indices]
+        all_groups = [all_groups[i] for i in selected_indices]
+        
+        print(f"   ✅ Balanced to: {len(X_ecg):,} samples")
+        print(f"   📊 Patients represented: {len(set(all_groups))}")
+
+    # Save to cache
+    print(f"📎 Caching raw ECG data to: {cache_path}")
+    os.makedirs(os.path.dirname(cache_path), exist_ok=True)
+    np.savez_compressed(cache_path,
+                        X=X_ecg,
+                        y=y_ecg,
+                        groups=np.array(all_groups, dtype=object),
+                        data_path=data_path)
+    print(f"   ✅ ECG cache saved: {len(all_beats)} beats")
     
-    print(f"   📊 Raw ECG data shape: {df.shape}")
-    
-    # Extract features and labels
-    X = df.iloc[:, :-1].values    # all but last column (features)
-    y = df.iloc[:, -1].values     # last column (original MIT-BIH labels)
-    
-    print(f"   🏷️ Original ECG label distribution: {np.bincount(y.astype(int))}")
-    
-    # Filter to keep only normal heartbeats (class 0) for binary classification
-    # This creates a clean "normal ECG" vs "EEG" classification task
-    ecg_mask = y == 0
-    X_filtered = X[ecg_mask]
-    
-    print(f"   ✂️ ECG samples after filtering (normal heartbeats only): {len(X_filtered)}")
-    print(f"   📊 ECG feature range: [{X_filtered.min():.6f}, {X_filtered.max():.6f}]")
-    print(f"   📊 ECG statistics: mean={X_filtered.mean():.6f}, std={X_filtered.std():.6f}")
-    
-    # Balance with EEG dataset size if requested
-    if num_eeg is not None:
-        if len(X_filtered) > num_eeg:
-            print(f"   ⚖️ Balancing ECG to match EEG size: {num_eeg:,} samples")
-            # Use random sampling to match EEG size
-            np.random.seed(42)  # Reproducible sampling
-            indices = np.random.choice(len(X_filtered), num_eeg, replace=False)
-            X_filtered = X_filtered[indices]
-            print(f"   ✅ ECG balanced to: {len(X_filtered):,} samples")
-        elif len(X_filtered) < num_eeg:
-            print(f"   ⚠️ ECG has fewer samples ({len(X_filtered):,}) than EEG ({num_eeg:,})")
-            print(f"   🎯 Using all available ECG samples")
-    
-    # Create binary labels for ECG vs EEG classification
-    # All ECG samples get label 0 (EEG will get label 1)
-    y_binary = np.zeros(len(X_filtered), dtype=int)
-    
-    print(f"   ✅ Final ECG dataset: {X_filtered.shape}")
-    print(f"   🏷️ Binary labels: {len(y_binary)} samples, all labeled as 0 (ECG)")
-    
-    return X_filtered, y_binary
+    return X_ecg, y_ecg, all_groups
 
 # def load_eeg_data(filepath):
 #     """Load EEG data from CSV file with proper header handling"""
@@ -86,200 +169,696 @@ def load_ecg_data(filepath, num_eeg=None):
 #     print(f"EEG mean: {X.mean():.6f}, std: {X.std():.6f}")
 #     return X, y
 
-def load_eeg_data(filepath, chunk_size=5000):
+def load_eeg_data(filepath=None, chunk_size=5000, data_path="data/bdf", cache_path="data/cache/eeg_raw.npz"):
     """
-    Load EEG data from CSV file with chunked processing and structure detection
+    FIXED: Load EEG data directly from DEAP BDF files with proper subject grouping
     
     Args:
-        filepath: Path to EEG CSV file
-        chunk_size: Process data in chunks of this size to reduce memory usage
-    
+        filepath: Ignored (for compatibility)
+        chunk_size: Ignored (for compatibility) 
+        data_path: Path to BDF files directory
+        
     Returns:
         X_eeg: EEG feature data
-        y_eeg: EEG labels  
+        y_eeg: EEG labels
+        groups: List of subject IDs for each segment
         metadata: Dictionary containing structure information
     """
-    print("🧠 Loading and analyzing EEG data...")
+    import mne
+    import os
+    import numpy as np
+
+    # Check for cached raw data
+    if os.path.exists(cache_path):
+        try:
+            print(f"🔍 Checking EEG raw data cache: {cache_path}")
+            cached = np.load(cache_path, allow_pickle=True)
+            if 'data_path' in cached and cached['data_path'] == data_path:
+                print(f"✅ Loading cached EEG data")
+                # return (cached['X'], cached['y'], cached['groups'], 
+                #         cached['metadata'].item())
+                return (cached['X'].astype(np.float32), cached['y'], cached['groups'], 
+                        cached['metadata'].item())
+            else:
+                print(f"⚠️ Cache mismatch - regenerating EEG data")
+        except Exception as e:
+            print(f"⚠️ Cache load failed: {e}")
     
-    # Initial analysis without loading full dataset
-    print("📊 EEG Dataset Analysis:")
-    eeg_df_sample = pd.read_csv(filepath, nrows=1000)  # Sample for analysis
-    total_rows = sum(1 for line in open(filepath)) - 1  # Count total rows (minus header)
+    print(f"🧠 Loading EEG data directly from DEAP BDF files...")
+    print(f"   📂 Data path: {data_path}")
     
-    print(f"   Total samples: {total_rows:,}")
-    print(f"   Columns: {len(eeg_df_sample.columns)}")
-    estimated_memory = total_rows * len(eeg_df_sample.columns) * 8 / 1024**2  # Estimate in MB
-    print(f"   Estimated memory: {estimated_memory:.1f} MB")
+    all_segments = []
+    all_groups = []
+    processed_subjects = 0
     
-    # Detect EEG structure from column names
-    eeg_channels = None
-    eeg_timepoints = None
-    structure_valid = False
+    # EEG processing parameters (from your original script)
+    TARGET_CHANNELS = 32
+    SEGMENT_LENGTH = 188
+    STEP = 188  # No overlap
+    DOWNSAMPLED_FREQ = 128
+    TRIAL_DURATION = 63.0
+    N_TRIALS_DEAP = 40
     
-    if 'label' in eeg_df_sample.columns:
-        feature_cols = [col for col in eeg_df_sample.columns if col != 'label']
-        total_features = len(feature_cols)
-        print(f"   Feature columns: {total_features}")
-        
-        # Try to detect structure from column names
-        if feature_cols and feature_cols[0].startswith('ch') and '_t' in feature_cols[0]:
-            print("   📡 Parsing structured column names...")
-            channels = set()
-            times = set()
+    # Suppress MNE warnings
+    import warnings
+    warnings.filterwarnings('ignore')
+    
+    for filename in sorted(os.listdir(data_path)):
+        if not filename.endswith('.bdf'):
+            continue
             
-            for col in feature_cols:
-                if '_t' in col:
-                    try:
-                        ch_part, t_part = col.split('_t')
-                        ch_num = int(ch_part.replace('ch', ''))
-                        t_num = int(t_part)
-                        channels.add(ch_num)
-                        times.add(t_num)
-                    except (ValueError, IndexError):
-                        continue
+        try:
+            filepath = os.path.join(data_path, filename)
+            # CRITICAL: Extract actual subject ID from filename
+            subject_id = f"eeg_{filename.split('.')[0]}"  # e.g., "eeg_s01"
             
-            if channels and times:
-                eeg_channels = len(channels)
-                eeg_timepoints = len(times)
-                structure_valid = True
-                print(f"   📡 Detected from names: {eeg_channels} channels × {eeg_timepoints} timepoints")
-        
-        if not structure_valid:
-            # Infer from common EEG configurations
-            print("   💡 Inferring from common configurations...")
-            common_configs = [(32, 188), (64, 125), (128, 250), (32, 250), (16, 376)]
+            print(f"   📄 Processing {filename} → {subject_id}")
             
-            for channels, timepoints in common_configs:
-                if channels * timepoints == total_features:
-                    eeg_channels = channels
-                    eeg_timepoints = timepoints
-                    structure_valid = True
-                    print(f"   💡 Inferred: {channels} channels × {timepoints} timepoints")
-                    break
-        
-        if not structure_valid:
-            # Fallback configuration
-            eeg_channels = 32
-            eeg_timepoints = total_features // 32
-            print(f"   🔧 Fallback: {eeg_channels} channels × {eeg_timepoints} timepoints")
-            print(f"   ⚠️  Structure validation failed - proceeding with caution")
-    else:
-        # No label column found
-        eeg_channels = 32
-        eeg_timepoints = 188
-        structure_valid = False
-        print(f"   ⚠️  No label column found, using defaults: {eeg_channels}ch × {eeg_timepoints}tp")
+            # Load BDF file
+            raw = mne.io.read_raw_bdf(filepath, preload=True, verbose='ERROR')
+            
+            # Select EEG channels
+            try:
+                raw.pick(picks='eeg')  # Updated to use inst.pick()
+                if len(raw.ch_names) > TARGET_CHANNELS:
+                    raw.pick(raw.ch_names[:TARGET_CHANNELS])
+                elif len(raw.ch_names) < 16:
+                    print(f"   ⚠️ Only {len(raw.ch_names)} EEG channels, skipping")
+                    continue
+            except:
+                # Fallback: pick first channels
+                n_channels = min(TARGET_CHANNELS, len(raw.ch_names))
+                raw.pick(raw.ch_names[:n_channels])
+            
+            # Resample
+            raw.resample(DOWNSAMPLED_FREQ, verbose='ERROR')
+            
+            # Extract segments 
+            samples_per_trial = int(TRIAL_DURATION * DOWNSAMPLED_FREQ)
+            total_samples = len(raw.times)
+            max_trials = min(N_TRIALS_DEAP, total_samples // samples_per_trial)
+            
+            subject_segments = []
+            
+            for trial_idx in range(max_trials):
+                start_sample = trial_idx * samples_per_trial
+                end_sample = start_sample + samples_per_trial
+                
+                try:
+                    trial_data = raw.get_data(start=start_sample, stop=end_sample)
+                    
+                    # Create segments
+                    for seg_start in range(0, trial_data.shape[1] - SEGMENT_LENGTH + 1, STEP):
+                        segment = trial_data[:, seg_start:seg_start + SEGMENT_LENGTH]
+                        
+                        if segment.shape[1] == SEGMENT_LENGTH:
+                            # Flatten to match expected format: (channels * timepoints,)
+                            segment_flat = segment.flatten()
+                            subject_segments.append(segment_flat)
+                        
+                except Exception as e:
+                    continue
+            
+            if len(subject_segments) > 0:
+                all_segments.extend(subject_segments)
+                # CRITICAL: Same subject_id for ALL segments from this subject
+                all_groups.extend([subject_id] * len(subject_segments))
+                
+                processed_subjects += 1
+                print(f"      ✅ {len(subject_segments)} segments extracted")
+            else:
+                print(f"      ⚠️ No segments extracted")
+                
+        except Exception as e:
+            print(f"   ❌ Error processing {filename}: {e}")
+            continue
     
-    # Clear sample dataframe
-    del eeg_df_sample
+    if not all_segments:
+        raise ValueError("No EEG segments extracted from any file")
     
-    # Memory-efficient chunked loading
-    print("🔄 Loading EEG data in chunks...")
-    X_eeg_chunks = []
-    y_eeg_chunks = []
+    X_eeg = np.array(all_segments, dtype=np.float32)
+    y_eeg = np.ones(len(all_segments), dtype=int)  # All EEG labeled as 1
     
-    # Load data in chunks
-    chunk_count = 0
-    for chunk_df in pd.read_csv(filepath, chunksize=chunk_size):
-        chunk_count += 1
-        start_idx = (chunk_count - 1) * chunk_size
-        end_idx = start_idx + len(chunk_df)
-        
-        print(f"   Processing EEG chunk {chunk_count}: samples {start_idx:,}-{end_idx:,}")
-        
-        # Extract features and labels
-        if 'label' in chunk_df.columns:
-            X_chunk = chunk_df.drop('label', axis=1).values
-            y_chunk = chunk_df['label'].astype(int).values
-        else:
-            # Fallback: assume last column is label
-            X_chunk = chunk_df.iloc[:, :-1].values
-            y_chunk = chunk_df.iloc[:, -1].astype(int).values
-        
-        X_eeg_chunks.append(X_chunk)
-        y_eeg_chunks.append(y_chunk)
-        
-        # Clear chunk from memory immediately
-        del chunk_df, X_chunk, y_chunk
+    # Create metadata (similar to original function)
+    actual_channels = TARGET_CHANNELS
+    actual_timepoints = SEGMENT_LENGTH
     
-    # Combine all chunks
-    print("   🔗 Combining EEG chunks...")
-    X_eeg = np.vstack(X_eeg_chunks)
-    y_eeg = np.concatenate(y_eeg_chunks)
-    
-    # Clear chunk lists to free memory
-    del X_eeg_chunks, y_eeg_chunks
-    
-    print(f"   ✅ EEG data loaded: {X_eeg.shape}")
-    print(f"   📊 EEG Statistics:")
-    print(f"      Unique labels: {np.unique(y_eeg).tolist()}")
-    print(f"      Data range: [{X_eeg.min():.6f}, {X_eeg.max():.6f}]")
-    print(f"      Mean: {X_eeg.mean():.6f}, Std: {X_eeg.std():.6f}")
-    print(f"      Memory usage: {X_eeg.nbytes/1024**2:.1f} MB")
-    
-    # Create metadata dictionary
     metadata = {
-        'eeg_channels': eeg_channels,
-        'eeg_timepoints': eeg_timepoints,
-        'structure_valid': structure_valid,
+        'eeg_channels': actual_channels,
+        'eeg_timepoints': actual_timepoints,
+        'structure_valid': True,
         'total_features': X_eeg.shape[1],
         'total_samples': X_eeg.shape[0],
-        'unique_labels': np.unique(y_eeg).tolist(),
-        'chunks_processed': chunk_count
+        'unique_labels': [1],
+        'chunks_processed': processed_subjects
     }
     
-    return X_eeg, y_eeg, metadata
+    print(f"   ✅ EEG complete: {len(all_segments)} segments from {processed_subjects} subjects")
+    print(f"   📊 Unique subjects: {len(set(all_groups))}")
+    print(f"   📊 Feature shape: {X_eeg.shape}")
+    print(f"   📊 Data range: [{X_eeg.min():.6f}, {X_eeg.max():.6f}]")
+
+    # Save to cache
+    print(f"📎 Caching raw EEG data to: {cache_path}")
+    os.makedirs(os.path.dirname(cache_path), exist_ok=True)
+    np.savez_compressed(cache_path,
+                        X=X_eeg,
+                        y=y_eeg,
+                        groups=np.array(all_groups, dtype=object),
+                        metadata=np.array(metadata, dtype=object),
+                        data_path=data_path)
+    print(f"   ✅ EEG cache saved: {len(all_segments)} segments")
+    
+    return X_eeg, y_eeg, all_groups, metadata
+
+# def project_ecg_to_eeg_format_(X_ecg, eeg_channels, eeg_timepoints):
+#     """
+#     Project ECG data to match EEG format using learned transformations
+    
+#     Args:
+#         X_ecg: ECG data (n_samples, ecg_features)
+#         eeg_channels: Number of EEG channels 
+#         eeg_timepoints: Number of timepoints per EEG segment
+    
+#     Returns:
+#         X_ecg_projected: ECG data reshaped to (n_samples, eeg_channels * eeg_timepoints)
+#     """
+#     from sklearn.decomposition import PCA
+#     from sklearn.preprocessing import StandardScaler
+    
+#     target_features = eeg_channels * eeg_timepoints
+#     ecg_features = X_ecg.shape[1]
+    
+#     print(f"   🔄 Projecting ECG: {ecg_features} → {target_features} features")
+    
+#     if ecg_features == target_features:
+#         print("   ✅ ECG already matches EEG dimensions")
+#         return X_ecg
+    
+#     elif ecg_features > target_features:
+#         # Use PCA to reduce dimensions while preserving variance
+#         print(f"   📉 Reducing ECG dimensions with PCA...")
+#         pca = PCA(n_components=target_features)
+#         X_ecg_projected = pca.fit_transform(X_ecg)
+#         explained_var = pca.explained_variance_ratio_.sum()
+#         print(f"   📊 PCA preserved {explained_var:.3f} of variance")
+        
+#     else:
+#         # Expand dimensions by repeating/interpolating features
+#         print(f"   📈 Expanding ECG dimensions...")
+        
+#         # Method 1: Repeat features cyclically
+#         repeat_factor = target_features // ecg_features
+#         remainder = target_features % ecg_features
+        
+#         X_repeated = np.tile(X_ecg, (1, repeat_factor))
+#         if remainder > 0:
+#             X_remainder = X_ecg[:, :remainder]
+#             X_ecg_projected = np.hstack([X_repeated, X_remainder])
+#         else:
+#             X_ecg_projected = X_repeated
+        
+#         print(f"   🔄 Repeated ECG features {repeat_factor}x + {remainder} extra")
+    
+#     return X_ecg_projected
+
+# def project_ecg_to_eeg_format__(X_ecg, eeg_channels, eeg_timepoints):
+#     """
+#     Project ECG data to EEG format using temporal segmentation and feature extraction
+    
+#     Args:
+#         X_ecg: ECG data (n_samples, 187)
+#         eeg_channels: Number of EEG channels (32)
+#         eeg_timepoints: Number of timepoints per EEG segment (188)
+    
+#     Returns:
+#         X_ecg_projected: ECG data reshaped to (n_samples, eeg_channels * eeg_timepoints)
+#     """
+#     import numpy as np
+#     from scipy.stats import skew, kurtosis
+#     from scipy.fft import fft
+
+#     target_features = eeg_channels * eeg_timepoints
+#     ecg_features = X_ecg.shape[1]
+    
+#     print(f"🔄 Projecting ECG: {ecg_features} → {target_features} features")
+    
+#     if ecg_features == target_features:
+#         print("✅ ECG already matches EEG dimensions")
+#         return X_ecg
+    
+#     # Parameters for temporal segmentation
+#     window_size = 30  # Small window to capture ECG morphology
+#     step_size = 5     # Overlap for smooth transitions
+#     n_windows = (ecg_features - window_size) // step_size + 1
+    
+#     # Ensure we get exactly eeg_channels windows
+#     if n_windows < eeg_channels:
+#         step_size = max(1, (ecg_features - window_size) // (eeg_channels - 1))
+#         n_windows = (ecg_features - window_size) // step_size + 1
+#     elif n_windows > eeg_channels:
+#         window_size = min(ecg_features, window_size + ((n_windows - eeg_channels) * step_size))
+#         n_windows = (ecg_features - window_size) // step_size + 1
+    
+#     print(f"📊 Creating {n_windows} windows (size={window_size}, step={step_size})")
+
+#     X_ecg_projected = np.zeros((X_ecg.shape[0], eeg_channels * eeg_timepoints))
+    
+#     for i in range(X_ecg.shape[0]):
+#         ecg_signal = X_ecg[i]
+#         channels = []
+        
+#         # Extract windows
+#         for j in range(n_windows):
+#             start = j * step_size
+#             end = start + window_size
+#             window = ecg_signal[start:end]
+            
+#             # Pad window if needed
+#             if len(window) < window_size:
+#                 window = np.pad(window, (0, window_size - len(window)), mode='constant')
+            
+#             # Extract features for this window
+#             features = [
+#                 np.mean(window),
+#                 np.std(window),
+#                 skew(window),
+#                 kurtosis(window),
+#                 np.max(window) - np.min(window)  # Peak-to-peak
+#             ]
+            
+#             # FFT features (top 5 frequencies)
+#             fft_vals = np.abs(fft(window))[:window_size//2]
+#             top_fft = np.sort(fft_vals)[-5:] if len(fft_vals) >= 5 else fft_vals
+            
+#             # Combine features
+#             channel_features = np.concatenate([features, top_fft])
+            
+#             # Pad or truncate to eeg_timepoints
+#             if len(channel_features) < eeg_timepoints:
+#                 channel_features = np.pad(channel_features, (0, eeg_timepoints - len(channel_features)), mode='constant')
+#             else:
+#                 channel_features = channel_features[:eeg_timepoints]
+            
+#             channels.append(channel_features)
+        
+#         # Pad with zero channels if needed
+#         while len(channels) < eeg_channels:
+#             channels.append(np.zeros(eeg_timepoints))
+        
+#         # Truncate if too many channels
+#         channels = channels[:eeg_channels]
+        
+#         # Reshape to (eeg_channels * eeg_timepoints)
+#         X_ecg_projected[i] = np.array(channels).flatten()
+    
+#     print(f"✅ ECG projected: {X_ecg_projected.shape}")
+#     print(f"   📊 Projected range: [{X_ecg_projected.min():.3f}, {X_ecg_projected.max():.3f}]")
+    
+#     return X_ecg_projected
 
 def project_ecg_to_eeg_format(X_ecg, eeg_channels, eeg_timepoints):
     """
-    Project ECG data to match EEG format using learned transformations
+    Enhanced ECG-to-EEG projection using domain-specific cardiac features
+    
+    Creates biologically meaningful pseudo-channels based on:
+    - Heart rate variability (HRV) features
+    - QRS morphology characteristics  
+    - R-peak temporal patterns
+    - Cardiac frequency domain features
+    - Statistical cardiac cycle properties
     
     Args:
-        X_ecg: ECG data (n_samples, ecg_features)
-        eeg_channels: Number of EEG channels 
-        eeg_timepoints: Number of timepoints per EEG segment
+        X_ecg: ECG data (n_samples, 187)
+        eeg_channels: Number of EEG channels (32)
+        eeg_timepoints: Number of timepoints per EEG segment (188)
     
     Returns:
         X_ecg_projected: ECG data reshaped to (n_samples, eeg_channels * eeg_timepoints)
     """
-    from sklearn.decomposition import PCA
-    from sklearn.preprocessing import StandardScaler
+    import numpy as np
     
     target_features = eeg_channels * eeg_timepoints
     ecg_features = X_ecg.shape[1]
     
-    print(f"   🔄 Projecting ECG: {ecg_features} → {target_features} features")
+    print(f"🔄 Robust ECG projection: {ecg_features} → {target_features} features")
+    print(f"   💓 Using domain-specific cardiac feature extraction")
     
     if ecg_features == target_features:
-        print("   ✅ ECG already matches EEG dimensions")
+        print("✅ ECG already matches EEG dimensions")
         return X_ecg
     
-    elif ecg_features > target_features:
-        # Use PCA to reduce dimensions while preserving variance
-        print(f"   📉 Reducing ECG dimensions with PCA...")
-        pca = PCA(n_components=target_features)
-        X_ecg_projected = pca.fit_transform(X_ecg)
-        explained_var = pca.explained_variance_ratio_.sum()
-        print(f"   📊 PCA preserved {explained_var:.3f} of variance")
+    X_ecg_projected = np.zeros((X_ecg.shape[0], target_features), dtype=np.float32)
+    
+    for i in range(X_ecg.shape[0]):
+        ecg_signal = X_ecg[i]
         
-    else:
-        # Expand dimensions by repeating/interpolating features
-        print(f"   📈 Expanding ECG dimensions...")
-        
-        # Method 1: Repeat features cyclically
-        repeat_factor = target_features // ecg_features
-        remainder = target_features % ecg_features
-        
-        X_repeated = np.tile(X_ecg, (1, repeat_factor))
-        if remainder > 0:
-            X_remainder = X_ecg[:, :remainder]
-            X_ecg_projected = np.hstack([X_repeated, X_remainder])
-        else:
-            X_ecg_projected = X_repeated
-        
-        print(f"   🔄 Repeated ECG features {repeat_factor}x + {remainder} extra")
+        try:
+            # ===== ROBUST FEATURE EXTRACTION =====
+            
+            # 1. Extract features with clipping
+            hrv_features = np.clip(extract_hrv_features(ecg_signal), -200, 200)
+            morphology_features = np.clip(extract_morphology_features(ecg_signal), -100, 100)  
+            frequency_features = np.clip(extract_cardiac_frequency_features(ecg_signal), -40, 40)
+            temporal_features = np.clip(extract_temporal_pattern_features(ecg_signal), -10, 10)
+            statistical_features = np.clip(extract_statistical_cardiac_features(ecg_signal), -10, 10)
+            
+            # 2. Normalize features to unit scale
+            hrv_features = _robust_normalize(hrv_features)
+            morphology_features = _robust_normalize(morphology_features)
+            frequency_features = _robust_normalize(frequency_features)
+            temporal_features = _robust_normalize(temporal_features)
+            statistical_features = _robust_normalize(statistical_features)
+            
+            # ===== CREATE SCALED PSEUDO-CHANNELS =====
+            
+            channels = []
+            
+            # Channels 1-8: HRV-based channels (8 channels)
+            channels.extend(create_hrv_channels(hrv_features, eeg_timepoints))
+            
+            # Channels 9-16: Morphology-based channels (8 channels)
+            channels.extend(create_morphology_channels(morphology_features, eeg_timepoints))
+            
+            # Channels 17-24: Frequency-based channels (8 channels)  
+            channels.extend(create_frequency_channels(frequency_features, eeg_timepoints))
+            
+            # Channels 25-32: Temporal and statistical channels (8 channels)
+            channels.extend(create_temporal_statistical_channels(
+                temporal_features, statistical_features, eeg_timepoints))
+            
+            # Ensure exactly 32 channels
+            while len(channels) < eeg_channels:
+                channels.append(np.zeros(eeg_timepoints))
+            channels = channels[:eeg_channels]
+            
+            # Flatten and apply final robust scaling
+            flattened = np.array(channels).flatten()
+            X_ecg_projected[i] = _final_scaling(flattened)
+            
+        except Exception as e:
+            # Fallback to original method for problematic signals
+            X_ecg_projected[i] = fallback_projection(ecg_signal, target_features)
+    
+    print(f"✅ Robust ECG projection complete: {X_ecg_projected.shape}")
+    print(f"   📊 Projected range: [{X_ecg_projected.min():.3f}, {X_ecg_projected.max():.3f}]")
     
     return X_ecg_projected
+
+
+def _robust_normalize(features):
+    """Robust normalization for feature vectors"""
+    if len(features) == 0 or np.std(features) < 1e-8:
+        return features
+    
+    # Use robust statistics (median, MAD) instead of mean/std
+    median = np.median(features)
+    mad = np.median(np.abs(features - median))
+    
+    if mad < 1e-8:
+        return features - median
+    
+    # Scale using MAD (more robust than std)
+    normalized = (features - median) / (1.4826 * mad)  # 1.4826 makes MAD ≈ std for normal dist
+    
+    # Clip to prevent extreme values
+    normalized_with_noise = normalized + np.random.normal(0, 0.01, normalized.shape)
+    return np.clip(normalized_with_noise, -3, 3)
+
+
+
+def _final_scaling(flattened_features):
+    """Apply final robust scaling to the complete feature vector"""
+    if np.std(flattened_features) < 1e-8:
+        return flattened_features
+    
+    # Clip extreme outliers first
+    q25, q75 = np.percentile(flattened_features, [25, 75])
+    iqr = q75 - q25
+    if iqr < 1e-8:
+        return flattened_features
+    
+    # Robust outlier bounds
+    lower_bound = q25 - 2 * iqr
+    upper_bound = q75 + 2 * iqr
+    clipped = np.clip(flattened_features, lower_bound, upper_bound)
+    
+    # Final z-score normalization
+    mean_val = np.mean(clipped)
+    std_val = np.std(clipped)
+    
+    if std_val < 1e-8:
+        return clipped - mean_val
+    
+    scaled = (clipped - mean_val) / std_val
+    
+    # Final safety clip to reasonable range
+    return np.clip(scaled, -6, 6)
+
+
+# Keep all other functions exactly the same
+def extract_hrv_features(ecg_signal, fs=360):
+    """Extract heart rate variability features"""
+    from scipy.stats import skew, kurtosis
+    r_peaks = detect_r_peaks(ecg_signal)
+    
+    if len(r_peaks) < 2:
+        return np.zeros(8)
+    
+    rr_intervals = np.diff(r_peaks) / fs * 1000
+    
+    if len(rr_intervals) == 0:
+        return np.zeros(8)
+    
+    features = [
+        np.mean(rr_intervals),
+        np.std(rr_intervals),
+        np.sqrt(np.mean(np.diff(rr_intervals)**2)),
+        len(rr_intervals[np.abs(np.diff(rr_intervals)) > 50]) / len(rr_intervals) * 100,
+        np.max(rr_intervals) - np.min(rr_intervals),
+        np.std(rr_intervals) / np.mean(rr_intervals) * 100,
+        skew(rr_intervals) if len(rr_intervals) > 2 else 0,
+        kurtosis(rr_intervals) if len(rr_intervals) > 2 else 0
+    ]
+    
+    return np.array(features)
+
+
+def extract_morphology_features(ecg_signal):
+    """Extract QRS morphology and waveform features"""
+    r_peaks = detect_r_peaks(ecg_signal)
+    
+    if len(r_peaks) < 2:
+        return np.zeros(8)
+    
+    qrs_amplitudes = []
+    qrs_widths = []
+    
+    for peak in r_peaks:
+        start = max(0, peak - 14)
+        end = min(len(ecg_signal), peak + 14)
+        qrs_complex = ecg_signal[start:end]
+        
+        if len(qrs_complex) > 0:
+            qrs_amplitudes.append(np.max(qrs_complex) - np.min(qrs_complex))
+            threshold = np.mean(qrs_complex) + 0.5 * np.std(qrs_complex)
+            width = len(qrs_complex[qrs_complex > threshold])
+            qrs_widths.append(width)
+    
+    if not qrs_amplitudes:
+        return np.zeros(8)
+    
+    features = [
+        np.mean(qrs_amplitudes),
+        np.std(qrs_amplitudes),
+        np.mean(qrs_widths),
+        np.std(qrs_widths),
+        np.max(ecg_signal) - np.min(ecg_signal),
+        np.mean(np.abs(ecg_signal)),
+        np.std(ecg_signal),
+        len(r_peaks) / len(ecg_signal) * 360
+    ]
+    
+    return np.array(features)
+
+
+def extract_cardiac_frequency_features(ecg_signal, fs=360):
+    """Extract frequency domain features specific to cardiac signals"""
+    fft_vals = np.abs(np.fft.fft(ecg_signal))
+    freqs = np.fft.fftfreq(len(ecg_signal), 1/fs)
+    
+    positive_freqs = freqs[:len(freqs)//2]
+    positive_fft = fft_vals[:len(fft_vals)//2]
+    
+    lf_band = (positive_freqs >= 0.04) & (positive_freqs <= 0.15)
+    hf_band = (positive_freqs >= 0.15) & (positive_freqs <= 0.4)
+    qrs_band = (positive_freqs >= 10) & (positive_freqs <= 25)
+    
+    features = [
+        np.sum(positive_fft[lf_band]) if np.any(lf_band) else 0,
+        np.sum(positive_fft[hf_band]) if np.any(hf_band) else 0,
+        np.sum(positive_fft[qrs_band]) if np.any(qrs_band) else 0,
+        np.argmax(positive_fft) * fs / len(ecg_signal),
+        np.mean(positive_fft),
+        np.std(positive_fft),
+        np.sum(positive_fft[:10]),
+        np.sum(positive_fft[-10:])
+    ]
+    
+    return np.array(features)
+
+
+def extract_temporal_pattern_features(ecg_signal):
+    """Extract temporal pattern features"""
+    segment_size = len(ecg_signal) // 4
+    features = []
+    
+    for i in range(4):
+        start = i * segment_size
+        end = (i + 1) * segment_size if i < 3 else len(ecg_signal)
+        segment = ecg_signal[start:end]
+        
+        if len(segment) > 0:
+            features.extend([np.mean(segment), np.std(segment)])
+        else:
+            features.extend([0, 0])
+    
+    return np.array(features)
+
+
+def extract_statistical_cardiac_features(ecg_signal):
+    """Extract statistical features of the cardiac signal"""
+    from scipy.stats import skew, kurtosis
+    features = [
+        np.mean(ecg_signal),
+        np.std(ecg_signal),
+        skew(ecg_signal),
+        kurtosis(ecg_signal),
+        np.percentile(ecg_signal, 25),
+        np.percentile(ecg_signal, 75),
+        np.mean(np.abs(np.diff(ecg_signal))),
+        np.sqrt(np.mean(np.diff(ecg_signal)**2))
+    ]
+    
+    return np.array(features)
+
+
+def detect_r_peaks(ecg_signal, fs=360):
+    """Detect R-peaks in ECG signal"""
+    from scipy.signal import butter, filtfilt, find_peaks
+    try:
+        nyquist = fs / 2
+        low = 5 / nyquist
+        high = 15 / nyquist
+        b, a = butter(4, [low, high], btype='band')
+        filtered_signal = filtfilt(b, a, ecg_signal)
+        
+        threshold = np.mean(np.abs(filtered_signal)) + 2 * np.std(filtered_signal)
+        min_distance = int(0.6 * fs / 60 * 60)
+        
+        peaks, _ = find_peaks(filtered_signal, height=threshold, distance=min_distance)
+        return peaks
+        
+    except Exception:
+        threshold = np.mean(ecg_signal) + 2 * np.std(ecg_signal)
+        peaks, _ = find_peaks(ecg_signal, height=threshold, distance=50)
+        return peaks
+
+
+def create_hrv_channels(hrv_features, timepoints):
+    """Create 8 HRV-based pseudo-channels"""
+    channels = []
+    
+    for i in range(8):
+        if i < len(hrv_features):
+            base_value = hrv_features[i]
+            t = np.linspace(0, 2*np.pi, timepoints)
+            freq = 0.1 + i * 0.05
+            channel = base_value * (1 + 0.1 * np.sin(freq * t))
+        else:
+            channel = np.zeros(timepoints)
+        
+        channels.append(channel)
+    
+    return channels
+
+
+def create_morphology_channels(morphology_features, timepoints):
+    """Create 8 morphology-based pseudo-channels"""
+    channels = []
+    
+    for i in range(8):
+        if i < len(morphology_features):
+            base_value = morphology_features[i]
+            t = np.linspace(0, 1, timepoints)
+            if i % 2 == 0:
+                channel = base_value * np.exp(-t)
+            else:
+                channel = base_value * (1 - t)
+        else:
+            channel = np.zeros(timepoints)
+        
+        channels.append(channel)
+    
+    return channels
+
+
+def create_frequency_channels(frequency_features, timepoints):
+    """Create 8 frequency-based pseudo-channels"""
+    channels = []
+    
+    for i in range(8):
+        if i < len(frequency_features):
+            base_value = frequency_features[i]
+            t = np.linspace(0, 4*np.pi, timepoints)
+            freq = 0.5 + i * 0.2
+            channel = base_value * np.cos(freq * t) * np.exp(-0.1 * t)
+        else:
+            channel = np.zeros(timepoints)
+        
+        channels.append(channel)
+    
+    return channels
+
+
+def create_temporal_statistical_channels(temporal_features, statistical_features, timepoints):
+    """Create 8 temporal and statistical pseudo-channels"""
+    channels = []
+    all_features = np.concatenate([temporal_features, statistical_features])
+    
+    for i in range(8):
+        if i < len(all_features):
+            base_value = all_features[i]
+            t = np.linspace(0, 1, timepoints)
+            if i < 4:
+                step_point = int(timepoints * (i + 1) / 5)
+                channel = np.zeros(timepoints)
+                channel[:step_point] = base_value
+                channel[step_point:] = base_value * 0.5
+            else:
+                power = min(i - 3, 3)
+                channel = base_value * (t ** power)
+        else:
+            channel = np.zeros(timepoints)
+        
+        channels.append(channel)
+    
+    return channels
+
+
+def fallback_projection(ecg_signal, target_features):
+    """Fallback to simple repetition if domain-specific extraction fails"""
+    repeat_factor = target_features // len(ecg_signal)
+    remainder = target_features % len(ecg_signal)
+    
+    X_repeated = np.tile(ecg_signal, repeat_factor)
+    if remainder > 0:
+        X_remainder = ecg_signal[:remainder]
+        X_projected = np.hstack([X_repeated, X_remainder])
+    else:
+        X_projected = X_repeated
+    
+    return X_projected
 
 def ensure_channel_time_structure(X_eeg, expected_channels=32, expected_timepoints=188):
     """
@@ -561,6 +1140,67 @@ def smart_normalize_single_dataset(X, dataset_name="Dataset", force_method=None)
     else:  # needs_normalization
         print(f"   🔧 {dataset_name} needs normalization - applying z-score")
         return zscore_normalize(X)
+    
+def normalize_train_test_separate(X_train, X_test, y_train, y_test, 
+                                normalization='zscore', strategy='separate'):
+    """
+    PROPER normalization: fit on train, transform on train+test
+    Prevents data leakage from test statistics
+    """
+    print(f"🔧 Applying {normalization} normalization (strategy: {strategy}) - LEAK-FREE")
+    
+    # Split by signal type
+    ecg_train_mask = y_train == 0
+    eeg_train_mask = y_train == 1
+    ecg_test_mask = y_test == 0  
+    eeg_test_mask = y_test == 1
+    
+    X_train_ecg, X_train_eeg = X_train[ecg_train_mask], X_train[eeg_train_mask]
+    X_test_ecg, X_test_eeg = X_test[ecg_test_mask], X_test[eeg_test_mask]
+    
+    scalers = {}
+    
+    if strategy == 'separate':
+        # ECG normalization - FIT ON TRAIN ONLY
+        if normalization == 'zscore':
+            scaler_ecg = StandardScaler()
+            X_train_ecg_norm = scaler_ecg.fit_transform(X_train_ecg)  # FIT + TRANSFORM
+            X_test_ecg_norm = scaler_ecg.transform(X_test_ecg)        # TRANSFORM ONLY
+            
+            # EEG normalization - FIT ON TRAIN ONLY  
+            scaler_eeg = StandardScaler()
+            X_train_eeg_norm = scaler_eeg.fit_transform(X_train_eeg)  # FIT + TRANSFORM
+            X_test_eeg_norm = scaler_eeg.transform(X_test_eeg)        # TRANSFORM ONLY
+            
+            scalers['ecg'] = scaler_ecg
+            scalers['eeg'] = scaler_eeg
+            
+        elif normalization == 'per_sample':
+            X_train_ecg_norm, _ = normalize_per_sample(X_train_ecg)
+            X_train_eeg_norm, _ = normalize_per_sample(X_train_eeg) 
+            X_test_ecg_norm, _ = normalize_per_sample(X_test_ecg)
+            X_test_eeg_norm, _ = normalize_per_sample(X_test_eeg)
+            
+        # Reconstruct full arrays
+        X_train_norm = np.zeros_like(X_train)
+        X_test_norm = np.zeros_like(X_test)
+        
+        X_train_norm[ecg_train_mask] = X_train_ecg_norm
+        X_train_norm[eeg_train_mask] = X_train_eeg_norm
+        X_test_norm[ecg_test_mask] = X_test_ecg_norm
+        X_test_norm[eeg_test_mask] = X_test_eeg_norm
+        
+    else:  # combined strategy
+        scaler = StandardScaler()
+        X_train_norm = scaler.fit_transform(X_train)  # FIT ON TRAIN
+        X_test_norm = scaler.transform(X_test)        # TRANSFORM TEST
+        scalers['combined'] = scaler
+    
+    print(f"✅ Leak-free normalization complete")
+    print(f"   Train: mean={np.mean(X_train_norm):.6f}, std={np.std(X_train_norm):.6f}")
+    print(f"   Test:  mean={np.mean(X_test_norm):.6f}, std={np.std(X_test_norm):.6f}")
+    
+    return X_train_norm, X_test_norm, scalers
 
 def normalize_datasets(X_ecg, X_eeg, normalization='smart', strategy='separate'):
     """
@@ -782,20 +1422,151 @@ def debug_data_after_normalization(X, dataset_name="Dataset", sample_size=1000):
     
     return True
 
-def prepare_dataset(ecg_path, eeg_path, normalization='zscore', 
-                   normalization_strategy='separate', validate_alignment=True, 
-                   force_reload=False, cache_path='data/preprocessed_dataset.npz',
-                   chunk_size=5000, memory_limit_gb=None, dataset_fraction=1.0):
+def apply_smart_clipping(X_train, y_train, clip_config=None):
     """
-    Memory-efficient dataset preparation with chunked processing and proper normalization
-
+    Apply signal-appropriate clipping to training data only
+    
     Args:
-        memory_limit_gb: Memory limit in GB for dataset processing. If provided,
-                        automatically calculates appropriate chunk_size.
+        X_train: Training data
+        y_train: Training labels (0=ECG, 1=EEG)
+        clip_config: {'ecg_threshold': 4.0, 'eeg_threshold': 3.0, 'apply_to': 'both'}
+    """
+    if clip_config is None:
+        clip_config = {
+            'ecg_threshold': 4.0,  # More aggressive for raw ECG
+            'eeg_threshold': 3.0,  # Conservative for preprocessed EEG
+            'apply_to': 'both'     # 'ecg', 'eeg', 'both', 'none'
+        }
+    
+    print(f"🔧 Applying smart clipping to training data...")
+    
+    X_clipped = X_train.copy()
+    clipped_count = 0
+    
+    if clip_config['apply_to'] in ['ecg', 'both']:
+        # ECG clipping (more aggressive due to raw data)
+        ecg_mask = y_train == 0
+        ecg_data = X_clipped[ecg_mask]
+        
+        before_count = np.sum(np.abs(ecg_data) > clip_config['ecg_threshold'])
+        ecg_data_clipped = np.clip(ecg_data, -clip_config['ecg_threshold'], clip_config['ecg_threshold'])
+        after_count = np.sum(np.abs(ecg_data_clipped) > clip_config['ecg_threshold'])
+        
+        X_clipped[ecg_mask] = ecg_data_clipped
+        clipped_count += (before_count - after_count)
+        
+        print(f"   ❤️  ECG clipped at ±{clip_config['ecg_threshold']}σ: {before_count:,} → {after_count:,} outliers")
+    
+    if clip_config['apply_to'] in ['eeg', 'both']:
+        # EEG clipping (conservative for preprocessed data)
+        eeg_mask = y_train == 1
+        eeg_data = X_clipped[eeg_mask]
+        
+        before_count = np.sum(np.abs(eeg_data) > clip_config['eeg_threshold'])
+        eeg_data_clipped = np.clip(eeg_data, -clip_config['eeg_threshold'], clip_config['eeg_threshold'])
+        after_count = np.sum(np.abs(eeg_data_clipped) > clip_config['eeg_threshold'])
+        
+        X_clipped[eeg_mask] = eeg_data_clipped
+        clipped_count += (before_count - after_count)
+        
+        print(f"   🧠 EEG clipped at ±{clip_config['eeg_threshold']}σ: {before_count:,} → {after_count:,} outliers")
+    
+    print(f"   ✅ Total values clipped: {clipped_count:,}")
+    return X_clipped
+
+def apply_realistic_noise(X_train, y_train, noise_config=None):
+    """
+    Apply physiologically realistic noise to training data
+    
+    Args:
+        noise_config: {
+            'eeg_gaussian': 0.05,     # Neural noise
+            'eeg_muscle': 0.03,       # Muscle artifacts  
+            'ecg_baseline': 0.02,     # Baseline wander
+            'ecg_powerline': 0.01,    # 50/60Hz interference
+            'probability': 0.7        # Fraction of samples to augment
+        }
+    """
+    if noise_config is None:
+        noise_config = {
+            'eeg_gaussian': 0.05,
+            'eeg_muscle': 0.03, 
+            'ecg_baseline': 0.02,
+            'ecg_powerline': 0.01,
+            'probability': 0.7
+        }
+    
+    print(f"🔊 Applying realistic noise augmentation...")
+    
+    X_noisy = X_train.copy()
+    np.random.seed(42)  # Reproducible
+    
+    n_samples = len(X_train)
+    augment_mask = np.random.random(n_samples) < noise_config['probability']
+    n_augmented = np.sum(augment_mask)
+    
+    print(f"   📊 Augmenting {n_augmented:,} / {n_samples:,} samples ({n_augmented/n_samples*100:.1f}%)")
+    
+    # EEG noise (neural + muscle artifacts)
+    eeg_mask = (y_train == 1) & augment_mask
+    if np.any(eeg_mask):
+        eeg_data = X_noisy[eeg_mask]
+        
+        # Gaussian neural noise
+        neural_noise = np.random.normal(0, noise_config['eeg_gaussian'], eeg_data.shape)
+        
+        # Muscle artifacts (sporadic high-frequency bursts)
+        muscle_noise = np.zeros_like(eeg_data)
+        for i in range(len(eeg_data)):
+            if np.random.random() < 0.3:  # 30% chance of muscle artifact
+                start_idx = np.random.randint(0, eeg_data.shape[1] - 50)
+                duration = np.random.randint(10, 50)
+                artifact = np.random.normal(0, noise_config['eeg_muscle'], duration)
+                muscle_noise[i, start_idx:start_idx+duration] = artifact
+        
+        X_noisy[eeg_mask] = eeg_data + neural_noise + muscle_noise
+        print(f"   🧠 EEG noise added: {np.sum(eeg_mask):,} samples")
+    
+    # ECG noise (baseline wander + powerline)
+    ecg_mask = (y_train == 0) & augment_mask
+    if np.any(ecg_mask):
+        ecg_data = X_noisy[ecg_mask]
+        
+        # Baseline wander (low frequency drift)
+        baseline_noise = np.zeros_like(ecg_data)
+        for i in range(len(ecg_data)):
+            t = np.linspace(0, 1, ecg_data.shape[1])
+            drift_freq = np.random.uniform(0.1, 0.5)  # 0.1-0.5 Hz
+            baseline_noise[i] = noise_config['ecg_baseline'] * np.sin(2 * np.pi * drift_freq * t)
+        
+        # Powerline interference (50/60 Hz simulation)
+        powerline_noise = np.zeros_like(ecg_data)
+        for i in range(len(ecg_data)):
+            if np.random.random() < 0.4:  # 40% chance of powerline interference
+                t = np.linspace(0, 1, ecg_data.shape[1])
+                freq = np.random.choice([50, 60])  # European/American
+                powerline_noise[i] = noise_config['ecg_powerline'] * np.sin(2 * np.pi * freq * t)
+        
+        X_noisy[ecg_mask] = ecg_data + baseline_noise + powerline_noise
+        print(f"   ❤️  ECG noise added: {np.sum(ecg_mask):,} samples")
+    
+    print(f"   ✅ Noise augmentation complete")
+    return X_noisy
+
+def prepare_dataset(ecg_path, eeg_path, normalization='zscore', 
+                   normalization_strategy='global', validate_alignment=True, 
+                   force_reload=False, cache_path='data/preprocessed_dataset.npz',
+                   chunk_size=5000, memory_limit_gb=None, dataset_fraction=1.0,
+                   ecg_cache_path='data/cache/ecg_raw.npz',
+                   eeg_cache_path='data/cache/eeg_raw.npz'):
+    """
+    Memory-efficient dataset preparation with PROPER normalization order and group creation
+    FIXED: Creates groups and normalizes AFTER splitting to prevent data leakage
+    ENHANCED: Forces perfect 50/50 class balance to eliminate systematic bias
     """
     import numpy as np
     import os
-    from sklearn.model_selection import train_test_split
+    from sklearn.model_selection import GroupShuffleSplit
 
     # Calculate chunk_size based on memory limit
     if memory_limit_gb is not None:
@@ -819,7 +1590,8 @@ def prepare_dataset(ecg_path, eeg_path, normalization='zscore',
                     'normalization_strategy': normalization_strategy,
                     'validate_alignment': validate_alignment,
                     'ecg_path': ecg_path,
-                    'eeg_path': eeg_path
+                    'eeg_path': eeg_path,
+                    'dataset_fraction': dataset_fraction
                 }
                 if cache_params == current_params:
                     print(f"✅ Cache parameters match - loading cached data")
@@ -827,16 +1599,20 @@ def prepare_dataset(ecg_path, eeg_path, normalization='zscore',
                     X_test = cached['X_test']
                     y_train = cached['y_train']
                     y_test = cached['y_test']
+                    groups_train = cached.get('groups_train', None)
                     print(f"📊 Cached data loaded:")
                     print(f"   Train: {X_train.shape} | Test: {X_test.shape}")
                     print(f"   Range: [{X_train.min():.6f}, {X_train.max():.6f}]")
+                    if groups_train is not None:
+                        print(f"   🔒 Groups loaded: {len(set(groups_train))} unique groups")
                     metadata = {
                         'eeg_channels': int(cached.get('eeg_channels', 32)),
                         'eeg_timepoints': int(cached.get('eeg_timepoints', 188)),
                         'structure_valid': bool(cached.get('structure_valid', True)),
                         'scalers': cached.get('scalers', {}).item() if 'scalers' in cached else {},
                         'normalization': normalization,
-                        'normalization_strategy': normalization_strategy
+                        'normalization_strategy': normalization_strategy,
+                        'groups_train': groups_train  # CRITICAL: Include groups in metadata
                     }
                     return X_train, X_test, y_train, y_test, metadata
                 else:
@@ -847,108 +1623,343 @@ def prepare_dataset(ecg_path, eeg_path, normalization='zscore',
             print(f"⚠️ Cache validation failed: {str(e)}")
 
     print(f"📝 Generating fresh dataset with chunk size: {chunk_size:,}")
-    X_eeg, y_eeg, eeg_metadata = load_eeg_data(eeg_path, chunk_size=chunk_size)
+    X_eeg, y_eeg, eeg_groups, eeg_metadata = load_eeg_data(
+        eeg_path, chunk_size=chunk_size, cache_path=eeg_cache_path)
     print("\n❤️  Loading ECG data...")
-    X_ecg, y_ecg = load_ecg_data(ecg_path, num_eeg=len(X_eeg))
+    X_ecg, y_ecg, ecg_groups = load_ecg_data(
+        ecg_path, num_eeg=None, cache_path=ecg_cache_path)
     print(f"ECG samples loaded: {X_ecg.shape[0]}")
 
-    min_samples = min(len(X_ecg), len(X_eeg))
-    print(f"   Target size: {min_samples:,} samples each")
+    # NEW: Group-aware balancing to ensure equal ECG/EEG samples
+    print(f"⚖️ Balancing ECG and EEG samples with group awareness...")
+    from collections import defaultdict
+    import random
 
-    # Balance ECG if needed
-    if len(X_ecg) > min_samples:
-        print(f"   🔄 Downsampling ECG: {len(X_ecg):,} → {min_samples:,}")
-        np.random.seed(42)
-        indices = np.random.choice(len(X_ecg), min_samples, replace=False)
-        X_ecg = X_ecg[indices]
-        y_ecg = y_ecg[indices]
+    # Count samples per group
+    ecg_group_counts = defaultdict(list)
+    eeg_group_counts = defaultdict(list)
+    for i, group in enumerate(ecg_groups):
+        ecg_group_counts[group].append(i)
+    for i, group in enumerate(eeg_groups):
+        eeg_group_counts[group].append(i)
 
-    # Balance EEG if needed
-    if len(X_eeg) > min_samples:
-        print(f"   🔄 Downsampling EEG: {len(X_eeg):,} → {min_samples:,}")
-        np.random.seed(42)
-        indices = np.random.choice(len(X_eeg), min_samples, replace=False)
-        X_eeg = X_eeg[indices]
-        y_eeg = y_eeg[indices]
+    # Determine target sample size (minimum of ECG/EEG group totals)
+    total_ecg_samples = len(X_ecg)
+    total_eeg_samples = len(X_eeg)
+    target_samples = min(total_ecg_samples, total_eeg_samples)
+    print(f"   📊 Target: {target_samples:,} samples per class")
 
-    print(f"   ✅ Final balanced sizes: ECG={len(X_ecg):,}, EEG={len(X_eeg):,}")
+    # Sample ECG data
+    ecg_samples_per_group = target_samples // len(ecg_group_counts)
+    ecg_remainder = target_samples % len(ecg_group_counts)
+    selected_ecg_indices = []
+    random.seed(42)
+    for i, (group, indices) in enumerate(ecg_group_counts.items()):
+        n_samples = ecg_samples_per_group + (1 if i < ecg_remainder else 0)
+        n_samples = min(n_samples, len(indices))
+        selected_ecg_indices.extend(random.sample(indices, n_samples))
+    
+    X_ecg = X_ecg[selected_ecg_indices]
+    y_ecg = y_ecg[selected_ecg_indices]
+    ecg_groups = [ecg_groups[i] for i in selected_ecg_indices]
+    print(f"   ✅ ECG balanced: {len(X_ecg):,} samples from {len(set(ecg_groups))} patients")
 
-    # Apply dataset fraction early (before compatibility and normalization)
+    # Sample EEG data
+    eeg_samples_per_group = target_samples // len(eeg_group_counts)
+    eeg_remainder = target_samples % len(eeg_group_counts)
+    selected_eeg_indices = []
+    random.seed(42)
+    for i, (group, indices) in enumerate(eeg_group_counts.items()):
+        n_samples = eeg_samples_per_group + (1 if i < eeg_remainder else 0)
+        n_samples = min(n_samples, len(indices))
+        selected_eeg_indices.extend(random.sample(indices, n_samples))
+    
+    X_eeg = X_eeg[selected_eeg_indices]
+    y_eeg = y_eeg[selected_eeg_indices]
+    eeg_groups = [eeg_groups[i] for i in selected_eeg_indices]
+    print(f"   ✅ EEG balanced: {len(X_eeg):,} samples from {len(set(eeg_groups))} subjects")
+
+    # Apply dataset fraction
     if dataset_fraction < 1.0:
         target_eeg = int(len(X_eeg) * dataset_fraction)
         target_ecg = int(len(X_ecg) * dataset_fraction)
+        
         X_eeg = X_eeg[:target_eeg]
         y_eeg = y_eeg[:target_eeg]
+        eeg_groups = eeg_groups[:target_eeg]
+        
         X_ecg = X_ecg[:target_ecg]
         y_ecg = y_ecg[:target_ecg]
-        print(f"✂️ Applied dataset_fraction before normalization:")
-        print(f"   EEG: {target_eeg} samples | ECG: {target_ecg} samples")
+        ecg_groups = ecg_groups[:target_ecg]
+        
+        print(f"✂️ Applied dataset_fraction: EEG={target_eeg:,}, ECG={target_ecg:,}")
 
+    # Feature compatibility check
     X_ecg, X_eeg = check_feature_compatibility(X_ecg, X_eeg)
 
-    print(f"\n🔧 APPLYING NORMALIZATION: {normalization} (strategy: {normalization_strategy})")
-    X_ecg_norm, X_eeg_norm, scalers = normalize_datasets(
-        X_ecg, X_eeg, 
-        normalization=normalization, 
-        strategy=normalization_strategy
-    )
+    # Create labels
+    y_ecg_labels = np.zeros(len(X_ecg), dtype=int)
+    y_eeg_labels = np.ones(len(X_eeg), dtype=int)
 
-    del X_ecg, X_eeg
-    y_ecg_labels = np.zeros(len(X_ecg_norm), dtype=int)
-    y_eeg_labels = np.ones(len(X_eeg_norm), dtype=int)
-
-    print(f"\n📦 Combining normalized datasets...")
-    X = np.vstack((X_ecg_norm, X_eeg_norm))
+    # Combine data with groups
+    X = np.vstack((X_ecg, X_eeg)).astype(np.float32)
     y = np.concatenate((y_ecg_labels, y_eeg_labels))
-    n_ecg_samples = len(y_ecg_labels)
-    del X_ecg_norm, X_eeg_norm, y_ecg_labels, y_eeg_labels
+    groups = ecg_groups + eeg_groups
+
+    # Validate lengths
+    if len(X) != len(y) or len(X) != len(groups):
+        raise ValueError(f"Data length mismatch: X={len(X)}, y={len(y)}, groups={len(groups)}")
+
+    print(f"   🔗 Combined dataset: {X.shape[0]} samples with {len(set(groups))} unique groups")
+
+    # CHANGED: Use StratifiedGroupKFold for balanced class distribution
+    print(f"\n🔒 LEAK-FREE SPLITTING: Using StratifiedGroupKFold for balanced classes...")
+    try:
+        from sklearn.model_selection import StratifiedGroupKFold
+        # Use first fold as train/test split (approximately 80/20)
+        splitter = StratifiedGroupKFold(n_splits=5, shuffle=True, random_state=42)
+        splits = list(splitter.split(X, y, groups))
+        train_idx, test_idx = splits[0]  # Use first fold as split
+        print(f"🔧 Using StratifiedGroupKFold for balanced class distribution")
+    except ImportError:
+        print(f"⚠️  StratifiedGroupKFold not available (requires scikit-learn ≥1.4)")
+        print(f"   📦 Falling back to GroupShuffleSplit - may create class imbalance")
+        from sklearn.model_selection import GroupShuffleSplit
+        splitter = GroupShuffleSplit(n_splits=1, test_size=0.2, random_state=42)
+        train_idx, test_idx = next(splitter.split(X, y, groups))
+
+    X_train_raw = X[train_idx]
+    X_test_raw = X[test_idx]
+    y_train = y[train_idx]
+    y_test = y[test_idx]
+    groups_train = [groups[i] for i in train_idx]
+    groups_test = [groups[i] for i in test_idx]
+
+    # Initial class balance check
+    train_ecg_count = np.sum(y_train == 0)
+    train_eeg_count = np.sum(y_train == 1)
+    test_ecg_count = np.sum(y_test == 0)
+    test_eeg_count = np.sum(y_test == 1)
+
+    train_ecg_pct = train_ecg_count / (train_ecg_count + train_eeg_count) * 100
+    test_ecg_pct = test_ecg_count / (test_ecg_count + test_eeg_count) * 100
+
+    print(f"   📊 Initial split - Train: ECG={train_ecg_count:,}, EEG={train_eeg_count:,} ({train_ecg_pct:.1f}% ECG)")
+    print(f"   📊 Initial split - Test: ECG={test_ecg_count:,}, EEG={test_eeg_count:,} ({test_ecg_pct:.1f}% ECG)")
+
+    # NEW: Force perfect 50/50 class balance
+    class_imbalance = abs(train_ecg_pct - test_ecg_pct)
+    if class_imbalance > 5.0:  # If more than 5% difference
+        print(f"🔧 FORCING PERFECT CLASS BALANCE (was {class_imbalance:.1f}% difference)")
+        
+        # Force training set to exact 50/50
+        min_train = min(train_ecg_count, train_eeg_count)
+        train_ecg_indices = np.where(y_train == 0)[0][:min_train]
+        train_eeg_indices = np.where(y_train == 1)[0][:min_train]
+        train_balanced_idx = np.concatenate([train_ecg_indices, train_eeg_indices])
+        
+        # Shuffle to avoid any ordering bias
+        np.random.seed(42)
+        np.random.shuffle(train_balanced_idx)
+        
+        # Force test set to exact 50/50
+        min_test = min(test_ecg_count, test_eeg_count)
+        test_ecg_indices = np.where(y_test == 0)[0][:min_test]
+        test_eeg_indices = np.where(y_test == 1)[0][:min_test]
+        test_balanced_idx = np.concatenate([test_ecg_indices, test_eeg_indices])
+        
+        # Shuffle to avoid any ordering bias
+        np.random.seed(42)
+        np.random.shuffle(test_balanced_idx)
+        
+        # Update arrays with balanced indices
+        X_train_raw = X_train_raw[train_balanced_idx]
+        y_train = y_train[train_balanced_idx]
+        groups_train_balanced = [groups_train[i] for i in train_balanced_idx]
+        
+        X_test_raw = X_test_raw[test_balanced_idx]
+        y_test = y_test[test_balanced_idx]
+        groups_test_balanced = [groups_test[i] for i in test_balanced_idx]
+        
+        # Update groups
+        groups_train = groups_train_balanced
+        groups_test = groups_test_balanced
+        
+        print(f"   ✅ Perfect balance achieved:")
+        print(f"      Train: {min_train:,} ECG, {min_train:,} EEG (50.0% ECG)")
+        print(f"      Test: {min_test:,} ECG, {min_test:,} EEG (50.0% ECG)")
+        print(f"      Total samples: Train={len(X_train_raw):,}, Test={len(X_test_raw):,}")
+    else:
+        print(f"   ✅ Class balance acceptable ({class_imbalance:.1f}% difference)")
+
+    # Validate no group overlap
+    train_groups_set = set(groups_train)
+    test_groups_set = set(groups_test)
+    overlap = train_groups_set.intersection(test_groups_set)
+    if overlap:
+        raise ValueError(f"Group overlap detected: {overlap}")
+    print(f"   ✅ No group overlap: {len(train_groups_set)} train, {len(test_groups_set)} test groups")
+
+    print(f"   📊 Final split - Train: {X_train_raw.shape} | Test: {X_test_raw.shape}")
+
+    # UPDATED: Enhanced normalization with global option
+    print(f"\n🔧 LEAK-FREE NORMALIZATION: {normalization} (strategy: {normalization_strategy})")
+    print(f"   📊 Processing {len(X_train_raw)} train + {len(X_test_raw)} test samples...")
+
+    if normalization_strategy == 'separate':
+        # Split by signal type for separate normalization
+        ecg_train_mask = y_train == 0
+        eeg_train_mask = y_train == 1
+        ecg_test_mask = y_test == 0
+        eeg_test_mask = y_test == 1
+        
+        X_train_ecg = X_train_raw[ecg_train_mask]
+        X_train_eeg = X_train_raw[eeg_train_mask]
+        X_test_ecg = X_test_raw[ecg_test_mask]
+        X_test_eeg = X_test_raw[eeg_test_mask]
+        
+        scalers = {}
+        
+        if normalization == 'zscore':
+            from sklearn.preprocessing import StandardScaler
+            
+            # ECG normalization - FIT ON TRAIN ONLY
+            scaler_ecg = StandardScaler()
+            X_train_ecg_norm = scaler_ecg.fit_transform(X_train_ecg)
+            X_test_ecg_norm = scaler_ecg.transform(X_test_ecg)
+            
+            # EEG normalization - FIT ON TRAIN ONLY  
+            scaler_eeg = StandardScaler()
+            X_train_eeg_norm = scaler_eeg.fit_transform(X_train_eeg)
+            X_test_eeg_norm = scaler_eeg.transform(X_test_eeg)
+            
+            scalers['ecg'] = scaler_ecg
+            scalers['eeg'] = scaler_eeg
+            
+        elif normalization == 'per_sample':
+            X_train_ecg_norm, _ = normalize_per_sample(X_train_ecg, clip_threshold=5.0)
+            X_train_eeg_norm, _ = normalize_per_sample(X_train_eeg, clip_threshold=4.5)
+            X_test_ecg_norm, _ = normalize_per_sample(X_test_ecg, clip_threshold=5.0)
+            X_test_eeg_norm, _ = normalize_per_sample(X_test_eeg, clip_threshold=4.5)
+            scalers['method'] = 'per_sample'
+        
+        # Reconstruct normalized arrays
+        X_train = np.zeros_like(X_train_raw)
+        X_test = np.zeros_like(X_test_raw)
+        
+        X_train[ecg_train_mask] = X_train_ecg_norm
+        X_train[eeg_train_mask] = X_train_eeg_norm
+        X_test[ecg_test_mask] = X_test_ecg_norm
+        X_test[eeg_test_mask] = X_test_eeg_norm
+
+    elif normalization_strategy == 'global':
+        # NEW: Global normalization for deployment compatibility
+        print(f"🌍 Using GLOBAL normalization for deployment compatibility")
+        from sklearn.preprocessing import StandardScaler
+        
+        if normalization == 'zscore':
+            # Fit scaler on ALL training data (both ECG and EEG)
+            global_scaler = StandardScaler()
+            X_train = global_scaler.fit_transform(X_train_raw)
+            X_test = global_scaler.transform(X_test_raw)
+            
+            scalers = {'global': global_scaler}
+            
+            # Save for deployment
+            scaler_path = 'models/global_scaler.pkl'
+            os.makedirs(os.path.dirname(scaler_path), exist_ok=True)
+            import joblib
+            joblib.dump(global_scaler, scaler_path)
+            print(f"💾 Global scaler saved to: {scaler_path}")
+        else:
+            # For other normalization methods, fall back to per_sample
+            X_train, _ = normalize_per_sample(X_train_raw, clip_threshold=5.0)
+            X_test, _ = normalize_per_sample(X_test_raw, clip_threshold=5.0)
+            scalers = {'method': 'per_sample'}
+
+    else:  # combined strategy (legacy)
+        from sklearn.preprocessing import StandardScaler
+        scaler = StandardScaler()
+        X_train = scaler.fit_transform(X_train_raw)  # FIT ON TRAIN
+        X_test = scaler.transform(X_test_raw)        # TRANSFORM TEST
+        scalers = {'combined': scaler}
+
+    # Apply clipping and noise AFTER normalization, BEFORE training
+    print(f"\n🎯 Applying data augmentation to training set only...")
+    
+    # Smart clipping configuration
+    clip_config = {
+        'ecg_threshold': 4.0,    # Aggressive for raw ECG outliers
+        'eeg_threshold': 3.0,    # Conservative for preprocessed EEG
+        'apply_to': 'both'       # Clip both signal types
+    }
+    
+    # Realistic noise configuration  
+    noise_config = {
+        'eeg_gaussian': 0.03,    # Reduced for better challenge balance
+        'eeg_muscle': 0.02,
+        'ecg_baseline': 0.015,
+        'ecg_powerline': 0.008,
+        'probability': 0.6       # 60% of training samples get noise
+    }
+    
+    # Apply augmentations
+    X_train = apply_smart_clipping(X_train, y_train, clip_config)
+    X_train = apply_realistic_noise(X_train, y_train, noise_config)
+    
+    # Check final extreme values
+    extreme_count = np.sum(np.abs(X_train) > 6)
+    if extreme_count > 0:
+        extreme_percent = extreme_count / X_train.size * 100
+        print(f"   📊 Post-augmentation: {extreme_count:,} extreme values ({extreme_percent:.3f}%)")
+    else:
+        print(f"   ✅ No extreme outliers after augmentation!")
+
+    print(f"✅ LEAK-FREE dataset preparation complete!")
+    print(f"   📊 Train: {X_train.shape} | Test: {X_test.shape}")
+    print(f"   🔒 Groups: {len(set(groups_train))} train, {len(set(groups_test))} test")
+    print(f"   📈 Feature range: [{X_train.min():.3f}, {X_train.max():.3f}]")
+    print(f"   📊 Train stats: mean={X_train.mean():.6f}, std={X_train.std():.6f}")
+    print(f"   📊 Test stats: mean={X_test.mean():.6f}, std={X_test.std():.6f}")
+
+    # Final class balance validation
+    final_train_ecg = np.sum(y_train == 0)
+    final_train_eeg = np.sum(y_train == 1)
+    final_test_ecg = np.sum(y_test == 0)
+    final_test_eeg = np.sum(y_test == 1)
+    
+    final_train_pct = final_train_ecg / (final_train_ecg + final_train_eeg) * 100
+    final_test_pct = final_test_ecg / (final_test_ecg + final_test_eeg) * 100
+    
+    print(f"   ⚖️  Final class balance: Train {final_train_pct:.1f}% ECG, Test {final_test_pct:.1f}% ECG")
 
     if validate_alignment and eeg_metadata['structure_valid']:
         print("🔍 Signal alignment validation:")
-        print(f"   ECG samples: {n_ecg_samples}")
-        print(f"   EEG samples: {len(X) - n_ecg_samples}")
         print(f"   EEG structure: {eeg_metadata['eeg_channels']}ch × {eeg_metadata['eeg_timepoints']}tp")
         print(f"   ✅ Signal alignment check completed")
 
-    print("🔀 Shuffling data...")
-    idx = np.random.permutation(len(X))
-    X, y = X[idx], y[idx]
-    print("Label distribution after shuffle:", np.bincount(y))
-
-    print("\n✂️  Splitting into train/test sets...")
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.2, stratify=y, random_state=42
-    )
-    del X, y
-
-    print("✅ Final dataset summary:")
-    print(f"   Train set: {X_train.shape} | Labels: {np.bincount(y_train)}")
-    print(f"   Test set:  {X_test.shape} | Labels: {np.bincount(y_test)}")
-    print(f"   Feature range: [{X_train.min():.6f}, {X_train.max():.6f}]")
-    print(f"   Final statistics:")
-    print(f"      Mean: {np.mean(X_train):.6f}")
-    print(f"      Std: {np.std(X_train):.6f}")
-    print(f"   Memory usage: Train={X_train.nbytes/1024**3:.2f}GB, Test={X_test.nbytes/1024**3:.2f}GB")
-
-    print(f"\n📎 Caching dataset...")
+    # Save dataset with groups
+    print(f"\n📎 Caching dataset with groups...")
     os.makedirs(os.path.dirname(cache_path), exist_ok=True)
     cache_params = {
         'normalization': normalization,
         'normalization_strategy': normalization_strategy,
         'validate_alignment': validate_alignment,
         'ecg_path': ecg_path,
-        'eeg_path': eeg_path
+        'eeg_path': eeg_path,
+        'dataset_fraction': dataset_fraction
     }
-    print("   🔄 Saving compressed arrays...")
+    
     np.savez_compressed(cache_path,
                         X_train=X_train, X_test=X_test,
                         y_train=y_train, y_test=y_test,
+                        groups_train=np.array(groups_train, dtype=object),
                         eeg_channels=eeg_metadata['eeg_channels'],
                         eeg_timepoints=eeg_metadata['eeg_timepoints'],
                         structure_valid=eeg_metadata['structure_valid'],
                         scalers=np.array(scalers, dtype=object),
                         cache_params=np.array(cache_params, dtype=object))
-    print(f"   ✅ Cached to: {cache_path}")
+    print(f"   ✅ Cached with groups to: {cache_path}")
 
     metadata = {
         'eeg_channels': eeg_metadata['eeg_channels'],
@@ -956,7 +1967,8 @@ def prepare_dataset(ecg_path, eeg_path, normalization='zscore',
         'structure_valid': eeg_metadata['structure_valid'],
         'scalers': scalers,
         'normalization': normalization,
-        'normalization_strategy': normalization_strategy
+        'normalization_strategy': normalization_strategy,
+        'groups_train': groups_train
     }
 
     return X_train, X_test, y_train, y_test, metadata

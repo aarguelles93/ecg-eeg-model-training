@@ -9,22 +9,28 @@ from training_utils import create_optimizer, cleanup_memory
 def build_simple_cnn(input_shape, num_classes, config=None):
     from tensorflow.keras.models import Sequential
     from tensorflow.keras.layers import (
-        Input, Conv1D, MaxPooling1D, Flatten, Dense, Dropout
+        Input, Conv1D, MaxPooling1D, Flatten, Dense, Dropout, BatchNormalization
     )
+    from tensorflow.keras.regularizers import l2
 
     config = config or {}
-    filters = config.get('filters', [32, 64])
+    filters = config.get('filters', [16, 32])  # Reduced filters
     kernel_sizes = config.get('kernel_sizes', [3, 3])
-    dropout = config.get('dropout', 0.5)
+    dropout = config.get('dropout', 0.6)  # Slightly higher dropout
+    l2_reg = config.get('l2_regularization', 0.005)  # Stronger L2
 
     model = Sequential([
         Input(shape=input_shape),
-        Conv1D(filters[0], kernel_size=kernel_sizes[0], activation='relu'),
+        Conv1D(filters[0], kernel_size=kernel_sizes[0], activation='relu',
+               kernel_regularizer=l2(l2_reg)),
+        BatchNormalization(),
         MaxPooling1D(pool_size=2),
-        Conv1D(filters[1], kernel_size=kernel_sizes[1], activation='relu'),
+        Conv1D(filters[1], kernel_size=kernel_sizes[1], activation='relu',
+               kernel_regularizer=l2(l2_reg)),
+        BatchNormalization(),
         MaxPooling1D(pool_size=2),
         Flatten(),
-        Dense(64, activation='relu'),
+        Dense(64, activation='relu', kernel_regularizer=l2(l2_reg)),
         Dropout(dropout),
         Dense(1, activation='sigmoid') if num_classes == 2 else Dense(num_classes, activation='softmax')
     ])
@@ -34,7 +40,7 @@ def build_simple_cnn(input_shape, num_classes, config=None):
 def build_cnn_lstm(input_shape, num_classes, config=None):
     from tensorflow.keras.models import Sequential
     from tensorflow.keras.layers import (
-        Input, Conv1D, MaxPooling1D, LSTM, Dense, Dropout
+        Input, Conv1D, MaxPooling1D, LSTM, Dense, Dropout, LayerNormalization
     )
     from tensorflow.keras.regularizers import l2
 
@@ -44,7 +50,7 @@ def build_cnn_lstm(input_shape, num_classes, config=None):
     dropout = config.get('dropout', 0.5)
     
     # SPEED OPTIMIZED: Even smaller LSTM
-    lstm_units = config.get('lstm_units', 16)
+    lstm_units = config.get('lstm_units', 32)
     l2_reg = config.get('l2_regularization', 2e-4)
 
     print(f"[DEBUG] CNN-LSTM input_shape received: {input_shape}")
@@ -57,27 +63,15 @@ def build_cnn_lstm(input_shape, num_classes, config=None):
 
     model = Sequential([
         Input(shape=input_shape),
-        # AGGRESSIVE DOWNSAMPLING: Reduce sequence length dramatically
-        Conv1D(filters[0], kernel_size=kernel_sizes[0], activation='relu'),  # Use config kernel
-        MaxPooling1D(pool_size=4),  # More aggressive pooling: 6016 → 1503
-        
-        Conv1D(filters[1], kernel_size=kernel_sizes[1], activation='relu'),  # Use config kernel
-        MaxPooling1D(pool_size=4),  # More aggressive pooling: 1503 → 375
-        
-        Conv1D(filters[1], kernel_size=kernel_sizes[2], activation='relu'),  # Use config kernel
-        MaxPooling1D(pool_size=4),  # Final reduction: 375 → 93
-        
-        # NOW LSTM processes only ~93 timesteps instead of 1504!
-        LSTM(lstm_units,
-             activation='tanh',
-             recurrent_activation='sigmoid',
-             dropout=0.0,
-             recurrent_dropout=0.0,
-             unroll=False,
-             use_bias=True),
-        
-        # Smaller dense layers for speed
-        Dense(16, activation='relu', kernel_regularizer=reg),  # Reduced from 32
+        Conv1D(filters[0], kernel_size=kernel_sizes[0], activation='relu', kernel_regularizer=reg),
+        MaxPooling1D(pool_size=4),
+        Conv1D(filters[1], kernel_size=kernel_sizes[1], activation='relu', kernel_regularizer=reg),
+        MaxPooling1D(pool_size=4),
+        Conv1D(filters[1], kernel_size=kernel_sizes[2], activation='relu', kernel_regularizer=reg),
+        MaxPooling1D(pool_size=4),
+        LayerNormalization(),
+        LSTM(lstm_units, dropout=0.1, recurrent_dropout=0.1, unroll=False, use_bias=True),
+        Dense(32, activation='relu', kernel_regularizer=reg),
         Dropout(dropout),
         Dense(1, activation='sigmoid') if num_classes == 2 else Dense(num_classes, activation='softmax')
     ])
@@ -86,28 +80,36 @@ def build_cnn_lstm(input_shape, num_classes, config=None):
 # === MLP ===
 def build_mlp(input_shape, num_classes=2, config=None):
     """
-    Build memory-efficient MLP model
-    ENHANCED with optimized architecture for GTX 1050
+    Build memory-efficient MLP model with enhanced regularization
     """
     from tensorflow.keras.models import Sequential
-    from tensorflow.keras.layers import Dense, Dropout
+    from tensorflow.keras.layers import Input, Dense, Dropout, BatchNormalization
+    from tensorflow.keras.regularizers import l2
 
     if config is None:
         config = {
             'learning_rate': 1e-4,
-            'batch_size': 48,      # Optimized for GTX 1050
-            'dropout1': 0.5,
-            'dropout2': 0.3
+            'batch_size': 48,
+            'dropout1': 0.3,
+            'dropout2': 0.2,
+            'l2_reg': 0.002
         }
     
+    # Get L2 regularization value
+    l2_reg = config.get('l2_reg', 0.002)
+    
     model = Sequential([
-        Dense(64, activation='relu', input_shape=input_shape),    # Optimized size
-        Dropout(config.get('dropout1', 0.5)),
-        Dense(32, activation='relu'),                            # Reduced for memory
-        Dropout(config.get('dropout2', 0.3)),
-        Dense(1 if num_classes == 2 else num_classes, 
+        Input(shape=input_shape),
+        Dense(128, activation='relu', kernel_regularizer=l2(l2_reg)),
+        BatchNormalization(),
+        Dropout(config.get('dropout1', 0.3)),
+        Dense(64, activation='relu', kernel_regularizer=l2(l2_reg)),
+        BatchNormalization(),
+        Dropout(config.get('dropout2', 0.2)),
+        Dense(1 if num_classes == 2 else num_classes,
               activation='sigmoid' if num_classes == 2 else 'softmax')
     ])
+
     
     return model
 
